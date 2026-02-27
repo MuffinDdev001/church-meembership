@@ -4,8 +4,8 @@
   "description": "Church Management System Backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node api.js && node server.js",
+    "dev": "node api.js && nodemon server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
@@ -25,6 +25,8 @@
     "nodemon": "^2.0.22"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["bcrypt"]
+    "onlyBuiltDependencies": [
+      "bcrypt"
+    ]
   }
 }
