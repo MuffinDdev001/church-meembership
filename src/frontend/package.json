@@ -1,6 +1,6 @@
 {
   "name": "church-management-frontend",
-  "version": "1.0.15",
+  "version": "1.0.17",
   "homepage": ".",
   "private": true,
   "main": "main.js",
@@ -23,7 +23,7 @@
     "react-to-print": "^3.0.5"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "node api.js && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
