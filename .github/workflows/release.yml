@@ -37,6 +37,7 @@ jobs:
         run: npm run electron:build:mac
         env:
           CI: false
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
@@ -46,6 +47,7 @@ jobs:
         run: npm run electron:build:win
         env:
           CI: false
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
