@@ -174,7 +174,8 @@ function createMenu() {
     {
       label: 'Administration',
       submenu: [
-        { label: 'Users', click: () => navigate('/admin/users') }
+        { label: 'Users', click: () => navigate('/admin/users') },
+        { label: 'Database Backup', click: () => navigate('/admin/backup') }
       ]
     },
     {
@@ -187,7 +188,8 @@ function createMenu() {
       label: 'Communication',
       submenu: [
         { label: 'Send Email', click: () => navigate('/communication/email') },
-        { label: 'Send Text Message', click: () => navigate('/communication/sms') }
+        { label: 'Send Text Message', click: () => navigate('/communication/sms') },
+        { label: 'Mass Communication', click: () => navigate('/communication/mass') }
       ]
     },
     {

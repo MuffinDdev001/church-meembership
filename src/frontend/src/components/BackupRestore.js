@@ -79,7 +79,7 @@ const BackupRestore = () => {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      
+
       setMessage('Automated backup downloaded successfully.');
     } catch (err) {
       console.error(err);
@@ -113,7 +113,7 @@ const BackupRestore = () => {
       if (contentDisposition && contentDisposition.indexOf('attachment') !== -1) {
         const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
         const matches = filenameRegex.exec(contentDisposition);
-        if (matches != null && matches[1]) { 
+        if (matches != null && matches[1]) {
           fileName = matches[1].replace(/['"]/g, '');
         }
       }
@@ -122,7 +122,7 @@ const BackupRestore = () => {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      
+
       setMessage('Backup downloaded successfully.');
     } catch (err) {
       console.error(err);
@@ -203,21 +203,21 @@ const BackupRestore = () => {
         <div className="flex flex-col md:flex-row gap-6 mb-6">
           <div className="flex-1 space-y-4">
             <div className="flex items-center">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="autoEnabled"
                 checked={autoSettings.enabled}
-                onChange={(e) => setAutoSettings({...autoSettings, enabled: e.target.checked})}
+                onChange={(e) => setAutoSettings({ ...autoSettings, enabled: e.target.checked })}
                 className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-2"
               />
               <label htmlFor="autoEnabled" className="font-medium text-gray-700">Enable Automated Backups</label>
             </div>
-            
+
             <div className="flex flex-col">
               <label className="text-sm text-gray-600 mb-1">Backup Frequency</label>
-              <select 
+              <select
                 value={autoSettings.frequency}
-                onChange={(e) => setAutoSettings({...autoSettings, frequency: e.target.value})}
+                onChange={(e) => setAutoSettings({ ...autoSettings, frequency: e.target.value })}
                 disabled={!autoSettings.enabled}
                 className="border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 max-w-xs disabled:bg-gray-100"
               >
@@ -244,7 +244,7 @@ const BackupRestore = () => {
               <div className="space-y-3">
                 <p className="text-sm text-green-600 font-medium">Ready to download</p>
                 <p className="text-xs text-gray-500">
-                  Created: {new Date(autoStatus.lastBackupDate).toLocaleString()} <br/>
+                  Created: {new Date(autoStatus.lastBackupDate).toLocaleString()} <br />
                   Size: {(autoStatus.sizeBytes / 1024 / 1024).toFixed(2)} MB
                 </p>
                 <button
@@ -280,7 +280,7 @@ const BackupRestore = () => {
         <p className="text-gray-600 mb-4 text-sm">
           <strong>Warning:</strong> Restoring a backup will permanently overwrite the current database. This action cannot be undone.
         </p>
-        
+
         <div className="flex flex-col mb-4">
           <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="backupFile">
             Select Backup File (.sql)
