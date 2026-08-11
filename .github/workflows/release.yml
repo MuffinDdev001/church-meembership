@@ -44,6 +44,7 @@ jobs:
         run: npx electron-builder --mac
         env:
           DEBUG: electron-builder
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
@@ -53,6 +54,7 @@ jobs:
         run: npx electron-builder --win --x64
         env:
           DEBUG: electron-builder
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
