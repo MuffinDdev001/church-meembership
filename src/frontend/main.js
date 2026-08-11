@@ -132,7 +132,11 @@ function createMenu() {
           click: () => autoUpdater.checkForUpdates()
         },
         { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' }
+        isMac ? { role: 'close' } : { role: 'quit' },
+        {
+          label: 'Data Backup',
+          click: () => navigate('/admin/backup')
+        }
       ]
     },
     {
@@ -174,8 +178,7 @@ function createMenu() {
     {
       label: 'Administration',
       submenu: [
-        { label: 'Users', click: () => navigate('/admin/users') },
-        { label: 'Database Backup', click: () => navigate('/admin/backup') }
+        { label: 'Users', click: () => navigate('/admin/users') }
       ]
     },
     {
