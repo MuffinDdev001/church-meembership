@@ -1,6 +1,6 @@
 {
   "name": "church-management-frontend",
-  "version": "1.0.40",
+  "version": "1.0.41",
   "homepage": ".",
   "private": true,
   "main": "main.js",
@@ -73,7 +73,8 @@
       "build/**/*",
       "main.js",
       "preload.js",
-      "package.json"
+      "package.json",
+      "node_modules/**/*"
     ],
     "directories": {
       "output": "dist"
