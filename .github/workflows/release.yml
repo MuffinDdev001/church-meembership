@@ -43,10 +43,7 @@ jobs:
         working-directory: src/frontend
         run: npx electron-builder --mac
         env:
-          DEBUG: electron-builder*
-          DEBUG_DMG: true
-          USE_HARD_LINKS: false
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
