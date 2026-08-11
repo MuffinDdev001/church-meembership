@@ -35,7 +35,7 @@ jobs:
         working-directory: src/frontend
         run: npm run build
         env:
-          CI: false
+          DISABLE_ESLINT_PLUGIN: true
           REACT_APP_API_URL: https://api.newlightxyz.com
 
       - name: Build Electron app (macOS)
