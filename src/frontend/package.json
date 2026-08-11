@@ -80,6 +80,7 @@
       "output": "dist"
     },
     "mac": {
+      "identity": null,
       "target": [
         {
           "target": "zip",

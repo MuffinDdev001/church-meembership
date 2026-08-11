@@ -31,23 +31,28 @@ jobs:
         working-directory: src/frontend
         run: npm ci
 
+      - name: Build React frontend
+        working-directory: src/frontend
+        run: npm run build
+        env:
+          CI: false
+          REACT_APP_API_URL: https://api.newlightxyz.com
+
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
         working-directory: src/frontend
-        run: npm run electron:build:mac
+        run: npx electron-builder --mac
         env:
-          CI: false
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
         working-directory: src/frontend
-        run: npm run electron:build:win
+        run: npx electron-builder --win --x64
         env:
-          CI: false
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_API_URL: https://api.newlightxyz.com
 
