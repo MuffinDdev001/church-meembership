@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 // Middleware
 app.use(cors({
-  origin: ['https://newlightxyz.com', 'https://www.newlightxyz.com', 'http://localhost:3000', 'http://localhost:3001'],
+  origin: ['https://newlightxyz.com', 'https://www.newlightxyz.com', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   credentials: true,
