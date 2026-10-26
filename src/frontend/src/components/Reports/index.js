@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useReactToPrint } from 'react-to-print';
 import DonationReport from './DonationReport';
 import MembershipReport from './MembershipReport';
 import GroupReport from './GroupReport';
@@ -377,7 +376,9 @@ const Reports = ({ initialReport }) => {
       if (selectedVisitor) params.append('visitorId', selectedVisitor.value);
       if (selectedSupporter) params.append('supporterId', selectedSupporter.value);
       if (selectedGroup) params.append('groupId', selectedGroup.value);
-      if (selectedDonationType) params.append('donationType', selectedDonationType.value);
+      // NOTE: We do not restrict donationType in the backend request so that the
+      // full data is always retrieved and filtered client-side instantly by selectedDonationType.
+      // This prevents "No donations found" errors when a type is pre-selected before clicking View.
       if (effectiveReport === 'membership') {
         params.append('memberStatus', memberStatus);
       }
@@ -386,8 +387,10 @@ const Reports = ({ initialReport }) => {
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       setReportData(response.data);
+      return response.data;
     } catch (error) {
       console.error(`Error generating ${effectiveReport} report:`, error);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -395,27 +398,168 @@ const Reports = ({ initialReport }) => {
 
   const printableReportRef = useRef(null);
 
-  const triggerReactToPrint = useReactToPrint({
-    contentRef: printableReportRef,
-    documentTitle: `${reportOptions.find(option => option.value === effectiveReport)?.label || 'Report'}-${new Date().toISOString().slice(0, 10)}`,
-    pageStyle: `
-      @page { size: auto; margin: 12mm; }
-      @media print {
-        body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        .no-print { display: none !important; }
-      }
-    `,
-  });
-
   const printReport = async () => {
-    if (!reportData) {
-      await generateReport();
-      setTimeout(() => {
-        triggerReactToPrint();
-      }, 300);
-      return;
+    let currentData = reportData;
+    if (!currentData) {
+      currentData = await generateReport();
+      if (!currentData) return;
     }
-    triggerReactToPrint();
+
+    setTimeout(() => {
+      const container = printableReportRef.current;
+      if (!container) return;
+
+      const reportTitle = reportOptions.find(option => option.value === effectiveReport)?.label || 'Report';
+
+      const oldFrame = document.getElementById('report-print-iframe');
+      if (oldFrame) {
+        oldFrame.remove();
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'report-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>${reportTitle}</title>
+            <style>
+              @page {
+                size: letter portrait;
+                margin: 12mm 10mm;
+              }
+              * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                color: #111827;
+                margin: 0;
+                padding: 10px;
+                font-size: 11pt;
+              }
+              h2 {
+                font-size: 18pt;
+                font-weight: 700;
+                color: #111827;
+                margin: 0;
+              }
+              .badge {
+                display: inline-block;
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-size: 9pt;
+                font-weight: 600;
+                margin-right: 6px;
+                background-color: #f3f4f6;
+                color: #374151;
+                border: 1px solid #e5e7eb;
+              }
+              .badge-type {
+                background-color: #dbeafe !important;
+                color: #1e40af !important;
+                border-color: #bfdbfe !important;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+                font-size: 10pt;
+              }
+              thead th {
+                background-color: #f3f4f6 !important;
+                color: #374151;
+                font-weight: 700;
+                text-transform: uppercase;
+                font-size: 8.5pt;
+                letter-spacing: 0.05em;
+                padding: 8px 10px;
+                border-bottom: 2px solid #d1d5db;
+                text-align: left;
+              }
+              thead th:last-child {
+                text-align: right;
+              }
+              tbody tr {
+                border-bottom: 1px solid #e5e7eb;
+              }
+              tbody tr:nth-child(even) {
+                background-color: #f9fafb;
+              }
+              tbody td {
+                padding: 6px 10px;
+                color: #374151;
+              }
+              .text-right {
+                text-align: right;
+              }
+              /* Category Subtotal row styling */
+              tr.bg-blue-50, tr[class*="bg-blue"] {
+                background-color: #eff6ff !important;
+                border-top: 1px solid #bfdbfe !important;
+                border-bottom: 1px solid #bfdbfe !important;
+              }
+              tr.bg-blue-50 td, tr[class*="bg-blue"] td {
+                color: #1e40af !important;
+                font-weight: 700 !important;
+              }
+              tr.bg-purple-50, tr[class*="bg-purple"] {
+                background-color: #faf5ff !important;
+                border-top: 1px solid #e9d5ff !important;
+                border-bottom: 1px solid #e9d5ff !important;
+              }
+              tr.bg-purple-50 td, tr[class*="bg-purple"] td {
+                color: #6b21a8 !important;
+                font-weight: 700 !important;
+              }
+              tr.bg-indigo-50, tr[class*="bg-indigo"] {
+                background-color: #eef2ff !important;
+                border-top: 1px solid #c7d2fe !important;
+                border-bottom: 1px solid #c7d2fe !important;
+              }
+              tr.bg-indigo-50 td, tr[class*="bg-indigo"] td {
+                color: #3730a3 !important;
+                font-weight: 700 !important;
+              }
+              /* Grand total row styling */
+              tfoot tr, tfoot td {
+                background-color: #e5e7eb !important;
+                color: #111827 !important;
+                font-weight: 700 !important;
+                font-size: 10.5pt !important;
+                border-top: 2px solid #9ca3af !important;
+              }
+              .truncate {
+                overflow: visible !important;
+                white-space: normal !important;
+              }
+            </style>
+          </head>
+          <body>
+            ${container.innerHTML}
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }, 350);
+    }, 150);
   };
 
   // Clear report data when either report type changes
