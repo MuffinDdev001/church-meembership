@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useReactToPrint } from 'react-to-print';
 import DonationReport from './DonationReport';
 import MembershipReport from './MembershipReport';
 import GroupReport from './GroupReport';
@@ -39,6 +40,9 @@ const Reports = ({ initialReport }) => {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [donationTypes, setDonationTypes] = useState([]);
+  const [selectedDonationType, setSelectedDonationType] = useState(null);
+  const [loadingDonationTypes, setLoadingDonationTypes] = useState(false);
   const [selectedRightOption, setSelectedRightOption] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
 
@@ -110,6 +114,8 @@ const Reports = ({ initialReport }) => {
   const showSupporterFilter = !!currentReportType.hasSupporterFilter;
   const showGroupFilter = !!currentReportType.hasGroupFilter;
 
+  const isDonationReport = activeReport === 'donation' || ['memberDonations', 'visitorDonations', 'supporterDonations', 'donations', 'donationTypeSummary'].includes(effectiveReport);
+
   const handleReportChange = (e) => {
     setActiveReport(e.target.value);
     setSelectedMember(null);
@@ -117,6 +123,7 @@ const Reports = ({ initialReport }) => {
     setSelectedVisitor(null);
     setSelectedSupporter(null);
     setSelectedGroup(null);
+    setSelectedDonationType(null);
   };
 
   const handleReport2Change = (e) => {
@@ -126,6 +133,7 @@ const Reports = ({ initialReport }) => {
     setSelectedVisitor(null);
     setSelectedSupporter(null);
     setSelectedGroup(null);
+    setSelectedDonationType(null);
   };
 
   const handleRightOptionChange = (e) => {
@@ -135,6 +143,7 @@ const Reports = ({ initialReport }) => {
     setSelectedVisitor(null);
     setSelectedSupporter(null);
     setSelectedGroup(null);
+    setSelectedDonationType(null);
   };
 
   // Sync when initialReport prop changes (navigation)
@@ -182,6 +191,7 @@ const Reports = ({ initialReport }) => {
       setSelectedSupporter(null);
       setSelectedVendor(null);
       setSelectedGroup(null);
+      setSelectedDonationType(null);
     }
   }, [initialReport]);
 
@@ -197,6 +207,7 @@ const Reports = ({ initialReport }) => {
       startDate: null,
       endDate: null
     });
+    setSelectedDonationType(null);
     setReportData(null);
   };
 
@@ -330,6 +341,30 @@ const Reports = ({ initialReport }) => {
     }
   }, [showGroupFilter]);
 
+  const fetchDonationTypes = async () => {
+    if (donationTypes.length > 0) return;
+    try {
+      setLoadingDonationTypes(true);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/donation-types`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setDonationTypes(response.data.map(dt => ({
+        value: dt.name,
+        label: dt.name
+      })));
+    } catch (error) {
+      console.error('Error fetching donation types:', error);
+    } finally {
+      setLoadingDonationTypes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isDonationReport) {
+      fetchDonationTypes();
+    }
+  }, [isDonationReport]);
+
   const generateReport = async () => {
     setLoading(true);
     try {
@@ -342,6 +377,7 @@ const Reports = ({ initialReport }) => {
       if (selectedVisitor) params.append('visitorId', selectedVisitor.value);
       if (selectedSupporter) params.append('supporterId', selectedSupporter.value);
       if (selectedGroup) params.append('groupId', selectedGroup.value);
+      if (selectedDonationType) params.append('donationType', selectedDonationType.value);
       if (effectiveReport === 'membership') {
         params.append('memberStatus', memberStatus);
       }
@@ -357,35 +393,29 @@ const Reports = ({ initialReport }) => {
     }
   };
 
+  const printableReportRef = useRef(null);
+
+  const triggerReactToPrint = useReactToPrint({
+    contentRef: printableReportRef,
+    documentTitle: `${reportOptions.find(option => option.value === effectiveReport)?.label || 'Report'}-${new Date().toISOString().slice(0, 10)}`,
+    pageStyle: `
+      @page { size: auto; margin: 12mm; }
+      @media print {
+        body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        .no-print { display: none !important; }
+      }
+    `,
+  });
+
   const printReport = async () => {
-    try {
-      setLoading(true);
-      const endpoint = `/reports/${effectiveReport}/pdf`;
-      const requestData = { startDate: dateRange.startDate, endDate: dateRange.endDate };
-      if (selectedMember) requestData.memberId = selectedMember.value;
-      if (selectedVendor) requestData.vendorId = selectedVendor.value;
-      if (selectedVisitor) requestData.visitorId = selectedVisitor.value;
-      if (selectedSupporter) requestData.supporterId = selectedSupporter.value;
-      if (selectedGroup) requestData.groupId = selectedGroup.value;
-      if (effectiveReport === 'membership') requestData.memberStatus = memberStatus;
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}${endpoint}`,
-        requestData,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, responseType: 'blob' }
-      );
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        iframe.contentWindow.print();
-      };
-    } catch (error) {
-      console.error(`Error printing ${effectiveReport} report:`, error);
-    } finally {
-      setLoading(false);
+    if (!reportData) {
+      await generateReport();
+      setTimeout(() => {
+        triggerReactToPrint();
+      }, 300);
+      return;
     }
+    triggerReactToPrint();
   };
 
   // Clear report data when either report type changes
@@ -394,13 +424,13 @@ const Reports = ({ initialReport }) => {
   const renderReportContent = () => {
     switch (effectiveReport) {
       case 'memberDonations':
-        return <DonationReport reportData={reportData} sortOrder={sortOrder} />;
+        return <DonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
       case 'visitorDonations':
-        return <VisitorDonationReport reportData={reportData} sortOrder={sortOrder} />;
+        return <VisitorDonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
       case 'supporterDonations':
-        return <SupporterDonationReport reportData={reportData} sortOrder={sortOrder} />;
+        return <SupporterDonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
       case 'donations':
-        return <DonationReport reportData={reportData} sortOrder={sortOrder} />;
+        return <DonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
       case 'membership':
         return <MembershipReport reportData={reportData} sortOrder={sortOrder} />;
       case 'groups':
@@ -410,7 +440,7 @@ const Reports = ({ initialReport }) => {
       case 'totalDonations':
         return <TotalDonationReport reportData={reportData} sortOrder={sortOrder} />;
       case 'donationTypeSummary':
-        return <DonationTypeSummaryReport reportData={reportData} sortOrder={sortOrder} />;
+        return <DonationTypeSummaryReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
       case 'vendors':
         return <VendorsReport reportData={reportData} sortOrder={sortOrder} />;
       case 'expenses':
@@ -523,7 +553,28 @@ const Reports = ({ initialReport }) => {
             />
           </div>
 
-
+          {isDonationReport && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Donation Type (Optional)</label>
+              <Select
+                options={donationTypes}
+                value={selectedDonationType}
+                onChange={setSelectedDonationType}
+                placeholder="All Types"
+                isClearable
+                isSearchable
+                isLoading={loadingDonationTypes}
+                className="w-56"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    height: '40px',
+                    minHeight: '40px'
+                  })
+                }}
+              />
+            </div>
+          )}
 
           {showMemberFilter && (
             <div>
@@ -673,11 +724,46 @@ const Reports = ({ initialReport }) => {
       </div>
 
       {/* Report Content */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div ref={printableReportRef} className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {reportOptions.find(option => option.value === effectiveReport)?.label || 'Report'}
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-800">
+              {reportOptions.find(option => option.value === effectiveReport)?.label || 'Report'}
+            </h2>
+            <div className="text-xs text-gray-500">
+              {new Date().toLocaleDateString()}
+            </div>
+          </div>
+          {/* Active filter summary badges */}
+          {(selectedDonationType || selectedMember || selectedVisitor || selectedSupporter || dateRange.startDate || dateRange.endDate) && (
+            <div className="flex flex-wrap gap-2 mt-2 text-xs">
+              {selectedDonationType && (
+                <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-medium">
+                  Donation Type: {selectedDonationType.label || selectedDonationType.value}
+                </span>
+              )}
+              {selectedMember && (
+                <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                  Member: {selectedMember.label}
+                </span>
+              )}
+              {selectedVisitor && (
+                <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                  Visitor: {selectedVisitor.label}
+                </span>
+              )}
+              {selectedSupporter && (
+                <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                  Supporter: {selectedSupporter.label}
+                </span>
+              )}
+              {(dateRange.startDate || dateRange.endDate) && (
+                <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                  Period: {dateRange.startDate ? new Date(dateRange.startDate).toLocaleDateString() : 'Start'} – {dateRange.endDate ? new Date(dateRange.endDate).toLocaleDateString() : 'Present'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (

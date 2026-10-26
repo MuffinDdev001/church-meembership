@@ -1,26 +1,40 @@
 import React from 'react';
 
-const DonationTypeSummaryReport = ({ reportData }) => {
+const DonationTypeSummaryReport = ({ reportData, selectedDonationType }) => {
   if (!reportData || !reportData.summary) {
     return <div className="p-6 text-center text-gray-500">No data available</div>;
   }
 
-  const { summary } = reportData;
+  const { summary: rawSummary } = reportData;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
-    }).format(parseFloat(amount));
+    }).format(parseFloat(amount || 0));
   };
 
-  const totalAmount = Object.values(summary || {}).reduce((sum, amount) => sum + parseFloat(amount), 0);
-  const rows = Object.entries(summary || {}).sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0));
+  const filterType = selectedDonationType?.value?.trim().toLowerCase();
+  const summary = filterType
+    ? Object.fromEntries(
+        Object.entries(rawSummary || {}).filter(([type]) => type.trim().toLowerCase() === filterType)
+      )
+    : (rawSummary || {});
+
+  const totalAmount = Object.values(summary).reduce((sum, amount) => sum + parseFloat(amount || 0), 0);
+  const rows = Object.entries(summary).sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0));
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        No donations found {filterType ? `for type "${selectedDonationType.label || selectedDonationType.value}"` : ''}
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
-
       <div className="overflow-x-auto">
         <table className="min-w-full table-fixed">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -46,7 +60,7 @@ const DonationTypeSummaryReport = ({ reportData }) => {
                   {formatCurrency(amount)}
                 </td>
                 <td className="px-3 py-1 whitespace-nowrap w-3/12 text-sm text-gray-500 text-right">
-                  {((parseFloat(amount) / totalAmount) * 100).toFixed(2)}%
+                  {totalAmount > 0 ? `${((parseFloat(amount) / totalAmount) * 100).toFixed(2)}%` : '0.00%'}
                 </td>
               </tr>
             ))}

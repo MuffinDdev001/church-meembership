@@ -16,7 +16,7 @@ module.exports = (app) => {
   // Donation Report Route
   app.get('/reports/donations', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, memberId } = req.query;
+      const { startDate, endDate, memberId, donationType } = req.query;
 
       let whereClause = {};
 
@@ -37,6 +37,10 @@ module.exports = (app) => {
 
       if (memberId) {
         whereClause.memberId = parseInt(memberId); // Filter by member ID
+      }
+
+      if (donationType) {
+        whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
       }
 
       const donations = await prisma.donation.findMany({
@@ -375,7 +379,26 @@ module.exports = (app) => {
   // Donation Type Summary Report Route
   app.get('/reports/donationTypeSummary', authenticateToken, async (req, res) => {
     try {
+      const { startDate, endDate, memberId, donationType } = req.query;
+
+      let whereClause = {};
+      if (startDate && endDate) {
+        whereClause.donationDate = {
+          gte: new Date(startDate),
+          lte: new Date(new Date(endDate).setHours(23, 59, 59))
+        };
+      } else if (startDate) {
+        whereClause.donationDate = { gte: new Date(startDate) };
+      } else if (endDate) {
+        whereClause.donationDate = { lte: new Date(new Date(endDate).setHours(23, 59, 59)) };
+      }
+
+      if (memberId) whereClause.memberId = parseInt(memberId);
+      // Case-insensitive, trimmed match so "Tithe", "tithe", " Tithe " all work
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
+
       const donations = await prisma.donation.findMany({
+        where: whereClause,
         include: {
           member: {
             select: {
@@ -387,7 +410,8 @@ module.exports = (app) => {
       });
 
       const summary = donations.reduce((acc, donation) => {
-        acc[donation.donationType] = (acc[donation.donationType] || 0) + parseFloat(donation.amount);
+        const key = (donation.donationType || 'N/A').trim();
+        acc[key] = (acc[key] || 0) + parseFloat(donation.amount);
         return acc;
       }, {});
 
@@ -403,7 +427,7 @@ module.exports = (app) => {
   // Donation Type Summary PDF Route
   app.post('/reports/donationTypeSummary/pdf', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, memberId } = req.body;
+      const { startDate, endDate, memberId, donationType } = req.body;
 
       let whereClause = {};
 
@@ -413,146 +437,90 @@ module.exports = (app) => {
           lte: new Date(new Date(endDate).setHours(23, 59, 59))
         };
       } else if (startDate) {
-        whereClause.donationDate = {
-          gte: new Date(startDate)
-        };
+        whereClause.donationDate = { gte: new Date(startDate) };
       } else if (endDate) {
-        whereClause.donationDate = {
-          lte: new Date(new Date(endDate).setHours(23, 59, 59))
-        };
+        whereClause.donationDate = { lte: new Date(new Date(endDate).setHours(23, 59, 59)) };
       }
 
-      if (memberId) {
-        whereClause.memberId = parseInt(memberId); // Filter by member ID
-      }
+      if (memberId) whereClause.memberId = parseInt(memberId);
+      // Case-insensitive trimmed match
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
         include: {
-          member: {
-            select: {
-              firstName: true,
-              lastName: true
-            }
-          }
+          member: { select: { firstName: true, lastName: true } },
+          visitor: { select: { firstName: true, lastName: true } },
+          supporter: { select: { firstName: true, lastName: true } }
         },
-        orderBy: {
-          donationDate: 'desc'
-        }
+        orderBy: { donationDate: 'desc' }
       });
 
-      console.log(donations)
-
-      // Create a summary that only includes donations within the specified date range
+      // Build summary grouped by type
       const summary = donations.reduce((acc, donation) => {
-        if (!acc[donation.donationType]) {
-          acc[donation.donationType] = 0;
-        }
-        acc[donation.donationType] += parseFloat(donation.amount);
+        const key = (donation.donationType || 'N/A').trim();
+        acc[key] = (acc[key] || 0) + parseFloat(donation.amount);
         return acc;
       }, {});
 
       const totalAmount = Object.values(summary).reduce((sum, amount) => sum + amount, 0);
+      // Sort descending by amount (same as on-screen)
+      const sortedEntries = Object.entries(summary).sort((a, b) => b[1] - a[1]);
 
-      const doc = new PDFDocument({
-        margin: 50,
-        size: 'A4'
-      });
-
+      const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=donation-type-summary-report.pdf');
-
       doc.pipe(res);
 
-      doc.moveDown(0.5)
-        .fontSize(18)
-        .font('Helvetica')
-        .text('Donation Type Summary', { align: 'center' });
-
-      // Updated date range display
-      if (startDate || endDate) {
-        doc.moveDown(0.5)
-          .fontSize(12)
-          .font('Helvetica-Bold')
-          .text(`From    ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'}    To    ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
+      // ── Title ────────────────────────────────────────────────────────────────
+      doc.fontSize(18).font('Helvetica-Bold').text('Donation Type Summary', { align: 'center' });
+      if (donationType) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb')
+          .text(`Filtered by Type: ${donationType}`, { align: 'center' });
+        doc.fillColor('#000000');
       }
+      if (startDate || endDate) {
+        doc.fontSize(10).font('Helvetica')
+          .text(`Period: ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'} to ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
+      }
+      doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
+      doc.moveDown(1.2);
 
-      doc.moveDown(2);
-
-      // Draw table
-      const tableTop = 130;
-      const columnSpacing = 20;
-      const columns = {
-        type: { x: 50, width: 200 },
-        amount: { x: 300, width: 100 }
+      // ── Table header ────────────────────────────────────────────────────────
+      const cols = { type: 50, amount: 390, pct: 470 };
+      const printHeaders = () => {
+        const hY = doc.y;
+        doc.rect(50, hY - 3, 500, 18).fill('#f3f4f6');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10)
+          .text('Donation Type', cols.type, hY)
+          .text('Amount', cols.amount, hY, { width: 70, align: 'right' })
+          .text('%', cols.pct, hY, { width: 50, align: 'right' });
+        doc.moveDown(0.4);
       };
+      printHeaders();
 
-      // Draw header
-      doc.font('Helvetica-Bold')
-        .fontSize(10);
-
-      // Header background
-      doc.rect(50, tableTop - 5, 490, 16)
-        .fill('#f3f4f6');
-
-      // Header text
-      doc.fillColor('#000000')
-        .text('Type Name', columns.type.x, tableTop)
-        .text('Amount', columns.amount.x, tableTop);
-
-      // Draw rows
-      let yPosition = tableTop + 20;
-      doc.font('Helvetica').fontSize(10);
-
-      // Add summary data
-      Object.entries(summary).forEach(([type, amount], i) => {
-        if (yPosition > 700) {
-          doc.addPage();
-          yPosition = 50;
-
-          // Repeat header on new page
-          doc.rect(50, yPosition - 5, 490, 16)
-            .fill('#f3f4f6');
-
-          doc.fillColor('#000000')
-            .font('Helvetica-Bold')
-            .text('Type Name', columns.type.x, yPosition)
-            .text('Amount', columns.amount.x, yPosition);
-
-          yPosition += 16;
-          doc.font('Helvetica');
-        }
-
-        // Alternate row background
-        if (i % 2 === 0) {
-          doc.rect(50, yPosition - 5, 490, 16)
-            .fill('#f9fafb');
-        }
-
-        doc.fillColor('#000000')
-          .text(type, columns.type.x, yPosition)
-          .text(formatCurrency(amount), columns.amount.x, yPosition);
-
-        yPosition += 16;
+      // ── Rows ────────────────────────────────────────────────────────────────
+      sortedEntries.forEach(([type, amount], i) => {
+        if (doc.y > 680) { doc.addPage(); printHeaders(); }
+        const y = doc.y;
+        if (i % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+        const pct = totalAmount > 0 ? ((amount / totalAmount) * 100).toFixed(2) : '0.00';
+        doc.fillColor('#000000').font('Helvetica').fontSize(9)
+          .text(type, cols.type, y, { width: 330 })
+          .text(formatCurrency(amount), cols.amount, y, { width: 70, align: 'right' })
+          .text(`${pct}%`, cols.pct, y, { width: 50, align: 'right' });
+        doc.moveDown(0.2);
       });
 
-      // Add summary section
-      doc.moveDown(5)
-        .font('Helvetica-Bold')
-        .fontSize(12);
-
-      // Calculate the total text
-      const totalText = `Total: ${formatCurrency(totalAmount)}`;
-      const textWidth = doc.widthOfString(totalText);
-
-      // Center the text by calculating the x position
-      const x_Position = (doc.page.width - textWidth) / 2;
-
-      // Set the y position right below the table
-      const y_Position = yPosition + 20; // Add some space below the table
-
-      // Add the total text at the calculated position
-      doc.text(totalText, x_Position, y_Position);
+      // ── Grand Total row ─────────────────────────────────────────────────────
+      if (doc.y > 680) { doc.addPage(); printHeaders(); }
+      doc.moveDown(0.3);
+      const totalY = doc.y;
+      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+        .text('Total:', cols.type, totalY + 3, { width: 330, align: 'right' })
+        .text(formatCurrency(totalAmount), cols.amount, totalY + 3, { width: 70, align: 'right' })
+        .text('100%', cols.pct, totalY + 3, { width: 50, align: 'right' });
 
       doc.end();
     } catch (error) {
@@ -561,11 +529,11 @@ module.exports = (app) => {
     }
   });
 
-  router.post('/donations/pdf', authenticateToken, async (req, res) => {
+  const generateDonationsPdf = async (req, res) => {
     try {
-      const { startDate, endDate, memberId } = req.body;
+      const { startDate, endDate, memberId, donationType } = req.body;
 
-      // Create date filter
+      // Create filter
       let whereClause = {};
       if (startDate || endDate) {
         whereClause.donationDate = {};
@@ -578,7 +546,11 @@ module.exports = (app) => {
       }
 
       if (memberId) {
-        whereClause.memberId = parseInt(memberId); // Filter by member ID
+        whereClause.memberId = parseInt(memberId);
+      }
+
+      if (donationType) {
+        whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
       }
 
       const donations = await prisma.donation.findMany({
@@ -596,123 +568,123 @@ module.exports = (app) => {
         }
       });
 
-      // Calculate totals by type
-      const totalsByType = donations.reduce((acc, donation) => {
-        acc[donation.donationType] = (acc[donation.donationType] || 0) + parseFloat(donation.amount);
-        return acc;
-      }, {});
-
       const totalAmount = donations.reduce((sum, donation) => sum + parseFloat(donation.amount), 0);
 
       const doc = new PDFDocument({
         margin: 50,
-        size: 'A4'
+        size: 'LETTER'
       });
 
-      // Set response headers
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=donations-report.pdf');
 
       doc.pipe(res);
 
-      doc.moveDown(0.5)
-        .fontSize(18)
-        .font('Helvetica')
-        .text('Donation Totals', { align: 'center' });
+      doc.fontSize(18)
+        .font('Helvetica-Bold')
+        .text('Donations Report', { align: 'center' });
 
-      if (startDate || endDate) {
-        // Updated date range display
-        doc.moveDown(0.5)
-          .fontSize(12)
+      if (donationType) {
+        doc.fontSize(11)
           .font('Helvetica-Bold')
-          .text(`From    ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'}    To    ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
-
+          .fillColor('#2563eb')
+          .text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fillColor('#000000');
       }
 
-      doc.moveDown(2);
+      if (startDate || endDate) {
+        doc.fontSize(10)
+          .font('Helvetica')
+          .text(`From    ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'}    To    ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
+      }
 
-      // Draw table
-      const tableTop = 130;
-      const columnSpacing = 20;
-      const columns = {
-        date: { x: 50, width: 100 },
-        member: { x: 170, width: 150 },
-        amount: { x: 340, width: 100 },
-        type: { x: 460, width: 80 }
+      doc.fontSize(9)
+        .font('Helvetica')
+        .text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
+
+      doc.moveDown(1.5);
+
+      const cols = {
+        date: 50,
+        member: 150,
+        type: 320,
+        amount: 460
       };
 
-      // Draw header
-      doc.font('Helvetica-Bold')
-        .fontSize(10);
-
-      // Header background
-      doc.rect(50, tableTop - 5, 490, 20)
-        .fill('#f3f4f6');
-
-      // Header text
-      doc.fillColor('#000000')
-        .text('Date', columns.date.x, tableTop)
-        .text('Member', columns.member.x, tableTop)
-        .text('Amount', columns.amount.x, tableTop)
-        .text('Type', columns.type.x, tableTop);
-
-      // Draw rows
-      let yPosition = tableTop + 25;
-      doc.font('Helvetica').fontSize(10);
-
-      donations.forEach((donation, i) => {
-        if (yPosition > 700) {
-          doc.addPage();
-          yPosition = 50;
-
-          // Repeat header on new page
-          doc.rect(50, yPosition - 5, 490, 16)
-            .fill('#f3f4f6');
-
-          doc.fillColor('#000000')
-            .font('Helvetica-Bold')
-            .text('Date', columns.date.x, yPosition)
-            .text('Member', columns.member.x, yPosition)
-            .text('Amount', columns.amount.x, yPosition)
-            .text('Type', columns.type.x, yPosition);
-
-
-          yPosition += 16;
-          doc.font('Helvetica');
-        }
-
-        // Alternate row background
-        if (i % 2 === 0) {
-          doc.rect(50, yPosition - 5, 490, 16)
-            .fill('#f9fafb');
-        }
-
+      const printHeaders = () => {
+        const hY = doc.y;
+        doc.rect(50, hY - 3, 500, 18).fill('#f3f4f6');
         doc.fillColor('#000000')
-          .text(new Date(donation.donationDate).toLocaleDateString(), columns.date.x, yPosition)
-          .text(`${donation.member.firstName} ${donation.member.lastName}`, columns.member.x, yPosition)
-          .text(formatCurrency(donation.amount), columns.amount.x, yPosition)
-          .text(donation.donationType, columns.type.x, yPosition);
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .text('Date', cols.date, hY)
+          .text('Person', cols.member, hY)
+          .text('Type', cols.type, hY)
+          .text('Amount', cols.amount, hY, { width: 90, align: 'right' });
+        doc.moveDown(0.4);
+      };
 
-        yPosition += 16;
+      printHeaders();
+
+      // Group donations by category/type
+      const donationsByType = donations.reduce((acc, donation) => {
+        const type = donation.donationType || 'N/A';
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(donation);
+        return acc;
+      }, {});
+
+      let rowIndex = 0;
+      Object.keys(donationsByType).forEach((type) => {
+        const typeDonations = donationsByType[type];
+        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+
+        typeDonations.forEach((donation) => {
+          if (doc.y > 690) {
+            doc.addPage();
+            printHeaders();
+          }
+
+          const y = doc.y;
+          if (rowIndex % 2 === 0) {
+            doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+          }
+
+          doc.fillColor('#000000').font('Helvetica').fontSize(9)
+            .text(donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+            .text(donation.member ? `${donation.member.lastName || ''}, ${donation.member.firstName || ''}` : 'N/A', cols.member, y)
+            .text(donation.donationType || 'N/A', cols.type, y)
+            .text(formatCurrency(donation.amount), cols.amount, y, { width: 90, align: 'right' });
+
+          doc.moveDown(0.2);
+          rowIndex++;
+        });
+
+        // Category Subtotal row
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const subtotalY = doc.y;
+        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
+        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000');
+        doc.moveDown(0.5);
       });
 
-      // Add summary section
-      doc.moveDown(5)
-        .font('Helvetica-Bold')
-        .fontSize(12);
-
-      // Calculate the total text
-      const totalText = `Total: ${formatCurrency(totalAmount)}`;
-      const textWidth = doc.widthOfString(totalText);
-
-      // Center the text by calculating the x position
-      const x_Position = (doc.page.width - textWidth) / 2;
-
-      // Set the y position right below the table
-      const y_Position = yPosition + 20; // Add some space below the table
-
-      // Add the total text at the calculated position
-      doc.text(totalText, x_Position, y_Position);
+      // Grand Total row
+      if (doc.y > 680) {
+        doc.addPage();
+        printHeaders();
+      }
+      doc.moveDown(0.3);
+      const totalY = doc.y;
+      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+        .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
+        .text(formatCurrency(totalAmount), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
       doc.end();
     } catch (error) {
@@ -721,7 +693,10 @@ module.exports = (app) => {
         res.status(500).json({ message: 'Error generating PDF report', error: error.message });
       }
     }
-  });
+  };
+
+  router.post('/donations/pdf', authenticateToken, generateDonationsPdf);
+  app.post('/reports/donations/pdf', authenticateToken, generateDonationsPdf);
 
   // Vendors Report Route
   app.get('/reports/vendors', authenticateToken, async (req, res) => {
@@ -1778,7 +1753,7 @@ module.exports = (app) => {
 
   app.get('/reports/memberDonations', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, memberId } = req.query;
+      const { startDate, endDate, memberId, donationType } = req.query;
 
       let whereClause = { memberId: { not: null } };
 
@@ -1791,6 +1766,7 @@ module.exports = (app) => {
       }
 
       if (memberId) whereClause.memberId = parseInt(memberId);
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
@@ -1808,7 +1784,7 @@ module.exports = (app) => {
 
   app.post('/reports/memberDonations/pdf', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, memberId } = req.body;
+      const { startDate, endDate, memberId, donationType } = req.body;
 
       let whereClause = { memberId: { not: null } };
       if (startDate && endDate) {
@@ -1819,6 +1795,7 @@ module.exports = (app) => {
         whereClause.donationDate = { lte: new Date(new Date(endDate).setHours(23, 59, 59)) };
       }
       if (memberId) whereClause.memberId = parseInt(memberId);
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
@@ -1834,33 +1811,84 @@ module.exports = (app) => {
       doc.pipe(res);
 
       doc.fontSize(18).font('Helvetica-Bold').text('Member Donations Report', { align: 'center' });
-      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
-      doc.moveDown();
+      if (donationType) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fillColor('#000000');
+      }
+      if (startDate || endDate) {
+        doc.fontSize(10).font('Helvetica').text(`Period: ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'} to ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
+      }
+      doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
+      doc.moveDown(1.2);
 
-      const cols = { date: 50, member: 130, type: 310, amount: 460 };
-      doc.font('Helvetica-Bold').fontSize(10)
-        .text('Date', cols.date, doc.y)
-        .text('Member', cols.member, doc.y - doc.currentLineHeight())
-        .text('Type', cols.type, doc.y - doc.currentLineHeight())
-        .text('Amount', cols.amount, doc.y - doc.currentLineHeight());
+      const cols = { date: 50, member: 140, type: 310, amount: 460 };
+      const printHeaders = () => {
+        const hY = doc.y;
+        doc.rect(50, hY - 3, 500, 18).fill('#f3f4f6');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10)
+          .text('Date', cols.date, hY)
+          .text('Member', cols.member, hY)
+          .text('Type', cols.type, hY)
+          .text('Amount', cols.amount, hY, { width: 90, align: 'right' });
+        doc.moveDown(0.4);
+      };
 
-      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-      doc.moveDown(0.3);
+      printHeaders();
 
-      donations.forEach((d, i) => {
-        if (doc.y > 700) { doc.addPage(); }
-        const y = doc.y;
-        if (i % 2 === 0) doc.rect(50, y - 3, 500, 16).fill('#f9fafb');
-        doc.fillColor('#000000').font('Helvetica').fontSize(9)
-          .text(new Date(d.donationDate).toLocaleDateString(), cols.date, y)
-          .text(`${d.member?.lastName || ''}, ${d.member?.firstName || ''}`, cols.member, y)
-          .text(d.donationType, cols.type, y)
-          .text(formatCurrency(d.amount), cols.amount, y);
-        doc.moveDown(0.2);
+      // Group donations by category/type
+      const donationsByType = donations.reduce((acc, d) => {
+        const type = d.donationType || 'N/A';
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(d);
+        return acc;
+      }, {});
+
+      let rowIndex = 0;
+      Object.keys(donationsByType).forEach((type) => {
+        const typeDonations = donationsByType[type];
+        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+
+        typeDonations.forEach((d) => {
+          if (doc.y > 690) {
+            doc.addPage();
+            printHeaders();
+          }
+          const y = doc.y;
+          if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+          doc.fillColor('#000000').font('Helvetica').fontSize(9)
+            .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+            .text(`${d.member?.lastName || ''}, ${d.member?.firstName || ''}`, cols.member, y)
+            .text(d.donationType || 'N/A', cols.type, y)
+            .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
+          doc.moveDown(0.2);
+          rowIndex++;
+        });
+
+        // Category Subtotal row
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const subtotalY = doc.y;
+        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
+        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000');
+        doc.moveDown(0.5);
       });
 
-      doc.moveDown().font('Helvetica-Bold').fontSize(11)
-        .text(`Total: ${formatCurrency(total)}`, { align: 'right' });
+      // Grand Total row
+      if (doc.y > 680) {
+        doc.addPage();
+        printHeaders();
+      }
+      doc.moveDown(0.3);
+      const totalY = doc.y;
+      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+        .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
+        .text(formatCurrency(total), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
       doc.end();
     } catch (error) {
@@ -1873,7 +1901,7 @@ module.exports = (app) => {
 
   app.get('/reports/visitorDonations', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, visitorId } = req.query;
+      const { startDate, endDate, visitorId, donationType } = req.query;
 
       let whereClause = { visitorId: { not: null } };
 
@@ -1886,6 +1914,7 @@ module.exports = (app) => {
       }
 
       if (visitorId) whereClause.visitorId = parseInt(visitorId);
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
@@ -1903,7 +1932,7 @@ module.exports = (app) => {
 
   app.post('/reports/visitorDonations/pdf', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, visitorId } = req.body;
+      const { startDate, endDate, visitorId, donationType } = req.body;
 
       let whereClause = { visitorId: { not: null } };
       if (startDate && endDate) {
@@ -1914,6 +1943,7 @@ module.exports = (app) => {
         whereClause.donationDate = { lte: new Date(new Date(endDate).setHours(23, 59, 59)) };
       }
       if (visitorId) whereClause.visitorId = parseInt(visitorId);
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
@@ -1929,33 +1959,84 @@ module.exports = (app) => {
       doc.pipe(res);
 
       doc.fontSize(18).font('Helvetica-Bold').text('Visitor Donations Report', { align: 'center' });
-      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
-      doc.moveDown();
+      if (donationType) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fillColor('#000000');
+      }
+      if (startDate || endDate) {
+        doc.fontSize(10).font('Helvetica').text(`Period: ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'} to ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
+      }
+      doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
+      doc.moveDown(1.2);
 
-      const cols = { date: 50, visitor: 130, type: 310, amount: 460 };
-      doc.font('Helvetica-Bold').fontSize(10)
-        .text('Date', cols.date, doc.y)
-        .text('Visitor', cols.visitor, doc.y - doc.currentLineHeight())
-        .text('Type', cols.type, doc.y - doc.currentLineHeight())
-        .text('Amount', cols.amount, doc.y - doc.currentLineHeight());
+      const cols = { date: 50, visitor: 140, type: 310, amount: 460 };
+      const printHeaders = () => {
+        const hY = doc.y;
+        doc.rect(50, hY - 3, 500, 18).fill('#f3f4f6');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10)
+          .text('Date', cols.date, hY)
+          .text('Visitor', cols.visitor, hY)
+          .text('Type', cols.type, hY)
+          .text('Amount', cols.amount, hY, { width: 90, align: 'right' });
+        doc.moveDown(0.4);
+      };
 
-      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-      doc.moveDown(0.3);
+      printHeaders();
 
-      donations.forEach((d, i) => {
-        if (doc.y > 700) { doc.addPage(); }
-        const y = doc.y;
-        if (i % 2 === 0) doc.rect(50, y - 3, 500, 16).fill('#f9fafb');
-        doc.fillColor('#000000').font('Helvetica').fontSize(9)
-          .text(new Date(d.donationDate).toLocaleDateString(), cols.date, y)
-          .text(`${d.visitor?.lastName || ''}, ${d.visitor?.firstName || ''}`, cols.visitor, y)
-          .text(d.donationType, cols.type, y)
-          .text(formatCurrency(d.amount), cols.amount, y);
-        doc.moveDown(0.2);
+      // Group donations by category/type
+      const donationsByType = donations.reduce((acc, d) => {
+        const type = d.donationType || 'N/A';
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(d);
+        return acc;
+      }, {});
+
+      let rowIndex = 0;
+      Object.keys(donationsByType).forEach((type) => {
+        const typeDonations = donationsByType[type];
+        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+
+        typeDonations.forEach((d) => {
+          if (doc.y > 690) {
+            doc.addPage();
+            printHeaders();
+          }
+          const y = doc.y;
+          if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+          doc.fillColor('#000000').font('Helvetica').fontSize(9)
+            .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+            .text(`${d.visitor?.lastName || ''}, ${d.visitor?.firstName || ''}`, cols.visitor, y)
+            .text(d.donationType || 'N/A', cols.type, y)
+            .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
+          doc.moveDown(0.2);
+          rowIndex++;
+        });
+
+        // Category Subtotal row
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const subtotalY = doc.y;
+        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
+        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000');
+        doc.moveDown(0.5);
       });
 
-      doc.moveDown().font('Helvetica-Bold').fontSize(11)
-        .text(`Total: ${formatCurrency(total)}`, { align: 'right' });
+      // Grand Total row
+      if (doc.y > 680) {
+        doc.addPage();
+        printHeaders();
+      }
+      doc.moveDown(0.3);
+      const totalY = doc.y;
+      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+        .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
+        .text(formatCurrency(total), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
       doc.end();
     } catch (error) {
@@ -1968,7 +2049,7 @@ module.exports = (app) => {
 
   app.get('/reports/supporterDonations', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, supporterId } = req.query;
+      const { startDate, endDate, supporterId, donationType } = req.query;
 
       let whereClause = { supporterId: { not: null } };
 
@@ -1981,6 +2062,7 @@ module.exports = (app) => {
       }
 
       if (supporterId) whereClause.supporterId = parseInt(supporterId);
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
@@ -1998,7 +2080,7 @@ module.exports = (app) => {
 
   app.post('/reports/supporterDonations/pdf', authenticateToken, async (req, res) => {
     try {
-      const { startDate, endDate, supporterId } = req.body;
+      const { startDate, endDate, supporterId, donationType } = req.body;
 
       let whereClause = { supporterId: { not: null } };
       if (startDate && endDate) {
@@ -2009,6 +2091,7 @@ module.exports = (app) => {
         whereClause.donationDate = { lte: new Date(new Date(endDate).setHours(23, 59, 59)) };
       }
       if (supporterId) whereClause.supporterId = parseInt(supporterId);
+      if (donationType) whereClause.donationType = { equals: donationType.trim(), mode: 'insensitive' };
 
       const donations = await prisma.donation.findMany({
         where: whereClause,
@@ -2024,33 +2107,84 @@ module.exports = (app) => {
       doc.pipe(res);
 
       doc.fontSize(18).font('Helvetica-Bold').text('Supporter Donations Report', { align: 'center' });
-      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
-      doc.moveDown();
+      if (donationType) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fillColor('#000000');
+      }
+      if (startDate || endDate) {
+        doc.fontSize(10).font('Helvetica').text(`Period: ${startDate ? new Date(startDate).toLocaleDateString() : 'Start'} to ${endDate ? new Date(endDate).toLocaleDateString() : 'Present'}`, { align: 'center' });
+      }
+      doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
+      doc.moveDown(1.2);
 
-      const cols = { date: 50, supporter: 130, type: 310, amount: 460 };
-      doc.font('Helvetica-Bold').fontSize(10)
-        .text('Date', cols.date, doc.y)
-        .text('Supporter', cols.supporter, doc.y - doc.currentLineHeight())
-        .text('Type', cols.type, doc.y - doc.currentLineHeight())
-        .text('Amount', cols.amount, doc.y - doc.currentLineHeight());
+      const cols = { date: 50, supporter: 140, type: 310, amount: 460 };
+      const printHeaders = () => {
+        const hY = doc.y;
+        doc.rect(50, hY - 3, 500, 18).fill('#f3f4f6');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10)
+          .text('Date', cols.date, hY)
+          .text('Supporter', cols.supporter, hY)
+          .text('Type', cols.type, hY)
+          .text('Amount', cols.amount, hY, { width: 90, align: 'right' });
+        doc.moveDown(0.4);
+      };
 
-      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-      doc.moveDown(0.3);
+      printHeaders();
 
-      donations.forEach((d, i) => {
-        if (doc.y > 700) { doc.addPage(); }
-        const y = doc.y;
-        if (i % 2 === 0) doc.rect(50, y - 3, 500, 16).fill('#f9fafb');
-        doc.fillColor('#000000').font('Helvetica').fontSize(9)
-          .text(new Date(d.donationDate).toLocaleDateString(), cols.date, y)
-          .text(`${d.supporter?.lastName || ''}, ${d.supporter?.firstName || ''}`, cols.supporter, y)
-          .text(d.donationType, cols.type, y)
-          .text(formatCurrency(d.amount), cols.amount, y);
-        doc.moveDown(0.2);
+      // Group donations by category/type
+      const donationsByType = donations.reduce((acc, d) => {
+        const type = d.donationType || 'N/A';
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(d);
+        return acc;
+      }, {});
+
+      let rowIndex = 0;
+      Object.keys(donationsByType).forEach((type) => {
+        const typeDonations = donationsByType[type];
+        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+
+        typeDonations.forEach((d) => {
+          if (doc.y > 690) {
+            doc.addPage();
+            printHeaders();
+          }
+          const y = doc.y;
+          if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+          doc.fillColor('#000000').font('Helvetica').fontSize(9)
+            .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+            .text(`${d.supporter?.lastName || ''}, ${d.supporter?.firstName || ''}`, cols.supporter, y)
+            .text(d.donationType || 'N/A', cols.type, y)
+            .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
+          doc.moveDown(0.2);
+          rowIndex++;
+        });
+
+        // Category Subtotal row
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const subtotalY = doc.y;
+        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
+        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000');
+        doc.moveDown(0.5);
       });
 
-      doc.moveDown().font('Helvetica-Bold').fontSize(11)
-        .text(`Total: ${formatCurrency(total)}`, { align: 'right' });
+      // Grand Total row
+      if (doc.y > 680) {
+        doc.addPage();
+        printHeaders();
+      }
+      doc.moveDown(0.3);
+      const totalY = doc.y;
+      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+        .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
+        .text(formatCurrency(total), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
       doc.end();
     } catch (error) {

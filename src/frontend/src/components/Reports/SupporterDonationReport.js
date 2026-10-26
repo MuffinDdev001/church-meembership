@@ -1,11 +1,11 @@
 import React from 'react';
 
-const SupporterDonationReport = ({ reportData, sortOrder = 'desc' }) => {
+const SupporterDonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }) => {
   if (!reportData || !reportData.donations) {
     return <div className="p-6 text-center text-gray-500">No data available</div>;
   }
 
-  const { donations, total } = reportData;
+  const { donations } = reportData;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -28,9 +28,14 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc' }) => {
     return ba - aa;
   });
 
+  const filterType = selectedDonationType?.value?.trim().toLowerCase();
+  const filteredDonations = filterType
+    ? sortedDonations.filter(d => (d.donationType || '').trim().toLowerCase() === filterType)
+    : sortedDonations;
+
   // Group donations by type
-  const donationsByType = sortedDonations.reduce((acc, donation) => {
-    const type = donation.donationType || 'N/A';
+  const donationsByType = filteredDonations.reduce((acc, donation) => {
+    const type = (donation.donationType || 'N/A').trim();
     if (!acc[type]) {
       acc[type] = [];
     }
@@ -43,6 +48,16 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc' }) => {
     acc[type] = donationsByType[type].reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
     return acc;
   }, {});
+
+  const grandTotal = Object.values(typeSubtotals).reduce((sum, val) => sum + val, 0);
+
+  if (filteredDonations.length === 0) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        No donations found {filterType ? `for type "${selectedDonationType.label || selectedDonationType.value}"` : ''}
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -65,7 +80,7 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc' }) => {
             </tr>
           </thead>
           <tbody className="bg-white">
-            {Object.keys(donationsByType).map((type, typeIndex) => (
+            {Object.keys(donationsByType).map((type) => (
               <React.Fragment key={type}>
                 {donationsByType[type].map(donation => (
                   <tr key={donation.id} className="hover:bg-gray-50">
@@ -92,11 +107,11 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc' }) => {
                   </tr>
                 ))}
                 {/* Subtotal row for this donation type */}
-                <tr className="bg-purple-50 border-y border-purple-200">
-                  <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-purple-900">
+                <tr className="bg-indigo-50 border-y border-indigo-200">
+                  <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-indigo-900">
                     {type} Subtotal:
                   </td>
-                  <td className="px-3 py-1 text-right text-sm font-semibold text-purple-900">
+                  <td className="px-3 py-1 text-right text-sm font-semibold text-indigo-900">
                     {formatCurrency(typeSubtotals[type])}
                   </td>
                 </tr>
@@ -109,7 +124,7 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc' }) => {
                 Total:
               </td>
               <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
-                {formatCurrency(total || 0)}
+                {formatCurrency(grandTotal)}
               </td>
             </tr>
           </tfoot>
