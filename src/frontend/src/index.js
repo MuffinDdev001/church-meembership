@@ -1,3 +1,10 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import { AuthProvider } from './contexts/AuthContext';
+import { HashRouter } from 'react-router-dom';
+
 // Suppress browser extension errors (e.g. MetaMask inpage.js) from triggering the React dev overlay
 if (typeof window !== 'undefined') {
   const isExtensionError = (err) => {
@@ -21,13 +28,6 @@ if (typeof window !== 'undefined') {
   }, true);
 }
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-import { AuthProvider } from './contexts/AuthContext';
-import { HashRouter } from 'react-router-dom';
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
@@ -37,4 +37,4 @@ root.render(
       </AuthProvider>
     </HashRouter>
   </React.StrictMode>
-); 
+);
