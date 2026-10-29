@@ -4,8 +4,8 @@
   "description": "Church Management System Backend",
   "main": "server.js",
   "scripts": {
-    "start": "node api.js && node server.js",
-    "dev": "node api.js && nodemon server.js"
+    "start": "node init && node server.js",
+    "dev": "node init && nodemon server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
