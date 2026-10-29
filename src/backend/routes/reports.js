@@ -475,7 +475,7 @@ module.exports = (app) => {
       // ── Title ────────────────────────────────────────────────────────────────
       doc.fontSize(18).font('Helvetica-Bold').text('Donation Type Summary', { align: 'center' });
       if (donationType) {
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb')
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000')
           .text(`Filtered by Type: ${donationType}`, { align: 'center' });
         doc.fillColor('#000000');
       }
@@ -516,8 +516,7 @@ module.exports = (app) => {
       if (doc.y > 680) { doc.addPage(); printHeaders(); }
       doc.moveDown(0.3);
       const totalY = doc.y;
-      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
-      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(11)
         .text('Total:', cols.type, totalY + 3, { width: 330, align: 'right' })
         .text(formatCurrency(totalAmount), cols.amount, totalY + 3, { width: 70, align: 'right' })
         .text('100%', cols.pct, totalY + 3, { width: 50, align: 'right' });
@@ -587,7 +586,7 @@ module.exports = (app) => {
       if (donationType) {
         doc.fontSize(11)
           .font('Helvetica-Bold')
-          .fillColor('#2563eb')
+          .fillColor('#000000')
           .text(`Donation Type: ${donationType}`, { align: 'center' });
         doc.fillColor('#000000');
       }
@@ -626,53 +625,41 @@ module.exports = (app) => {
 
       printHeaders();
 
-      // Group donations by category/type
-      const donationsByType = donations.reduce((acc, donation) => {
-        const type = donation.donationType || 'N/A';
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(donation);
-        return acc;
-      }, {});
-
       let rowIndex = 0;
-      Object.keys(donationsByType).forEach((type) => {
-        const typeDonations = donationsByType[type];
-        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+      donations.forEach((donation) => {
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
 
-        typeDonations.forEach((donation) => {
-          if (doc.y > 690) {
-            doc.addPage();
-            printHeaders();
-          }
+        const y = doc.y;
+        if (rowIndex % 2 === 0) {
+          doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+        }
 
-          const y = doc.y;
-          if (rowIndex % 2 === 0) {
-            doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
-          }
+        doc.fillColor('#000000').font('Helvetica').fontSize(9)
+          .text(donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+          .text(donation.member ? `${donation.member.lastName || ''}, ${donation.member.firstName || ''}` : 'N/A', cols.member, y)
+          .text(donation.donationType || 'N/A', cols.type, y)
+          .text(formatCurrency(donation.amount), cols.amount, y, { width: 90, align: 'right' });
 
-          doc.fillColor('#000000').font('Helvetica').fontSize(9)
-            .text(donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
-            .text(donation.member ? `${donation.member.lastName || ''}, ${donation.member.firstName || ''}` : 'N/A', cols.member, y)
-            .text(donation.donationType || 'N/A', cols.type, y)
-            .text(formatCurrency(donation.amount), cols.amount, y, { width: 90, align: 'right' });
+        doc.moveDown(0.2);
+        rowIndex++;
+      });
 
-          doc.moveDown(0.2);
-          rowIndex++;
-        });
-
-        // Category Subtotal row
+      // Show subtotal row ONLY if a specific category was selected
+      if (donationType) {
         if (doc.y > 690) {
           doc.addPage();
           printHeaders();
         }
         const subtotalY = doc.y;
-        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
-        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
-          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
-          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${donationType} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(totalAmount), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
         doc.fillColor('#000000');
         doc.moveDown(0.5);
-      });
+      }
 
       // Grand Total row
       if (doc.y > 680) {
@@ -681,8 +668,7 @@ module.exports = (app) => {
       }
       doc.moveDown(0.3);
       const totalY = doc.y;
-      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
-      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(11)
         .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
         .text(formatCurrency(totalAmount), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
@@ -1812,7 +1798,7 @@ module.exports = (app) => {
 
       doc.fontSize(18).font('Helvetica-Bold').text('Member Donations Report', { align: 'center' });
       if (donationType) {
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000').text(`Donation Type: ${donationType}`, { align: 'center' });
         doc.fillColor('#000000');
       }
       if (startDate || endDate) {
@@ -1835,48 +1821,36 @@ module.exports = (app) => {
 
       printHeaders();
 
-      // Group donations by category/type
-      const donationsByType = donations.reduce((acc, d) => {
-        const type = d.donationType || 'N/A';
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(d);
-        return acc;
-      }, {});
-
       let rowIndex = 0;
-      Object.keys(donationsByType).forEach((type) => {
-        const typeDonations = donationsByType[type];
-        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+      donations.forEach((d) => {
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const y = doc.y;
+        if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+        doc.fillColor('#000000').font('Helvetica').fontSize(9)
+          .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+          .text(`${d.member?.lastName || ''}, ${d.member?.firstName || ''}`, cols.member, y)
+          .text(d.donationType || 'N/A', cols.type, y)
+          .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
+        doc.moveDown(0.2);
+        rowIndex++;
+      });
 
-        typeDonations.forEach((d) => {
-          if (doc.y > 690) {
-            doc.addPage();
-            printHeaders();
-          }
-          const y = doc.y;
-          if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
-          doc.fillColor('#000000').font('Helvetica').fontSize(9)
-            .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
-            .text(`${d.member?.lastName || ''}, ${d.member?.firstName || ''}`, cols.member, y)
-            .text(d.donationType || 'N/A', cols.type, y)
-            .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
-          doc.moveDown(0.2);
-          rowIndex++;
-        });
-
-        // Category Subtotal row
+      // Show subtotal row ONLY if a specific category was selected
+      if (donationType) {
         if (doc.y > 690) {
           doc.addPage();
           printHeaders();
         }
         const subtotalY = doc.y;
-        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
-        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
-          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
-          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${donationType} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(total), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
         doc.fillColor('#000000');
         doc.moveDown(0.5);
-      });
+      }
 
       // Grand Total row
       if (doc.y > 680) {
@@ -1885,8 +1859,7 @@ module.exports = (app) => {
       }
       doc.moveDown(0.3);
       const totalY = doc.y;
-      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
-      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(11)
         .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
         .text(formatCurrency(total), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
@@ -1960,7 +1933,7 @@ module.exports = (app) => {
 
       doc.fontSize(18).font('Helvetica-Bold').text('Visitor Donations Report', { align: 'center' });
       if (donationType) {
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000').text(`Donation Type: ${donationType}`, { align: 'center' });
         doc.fillColor('#000000');
       }
       if (startDate || endDate) {
@@ -1983,48 +1956,36 @@ module.exports = (app) => {
 
       printHeaders();
 
-      // Group donations by category/type
-      const donationsByType = donations.reduce((acc, d) => {
-        const type = d.donationType || 'N/A';
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(d);
-        return acc;
-      }, {});
-
       let rowIndex = 0;
-      Object.keys(donationsByType).forEach((type) => {
-        const typeDonations = donationsByType[type];
-        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+      donations.forEach((d) => {
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const y = doc.y;
+        if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+        doc.fillColor('#000000').font('Helvetica').fontSize(9)
+          .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+          .text(`${d.visitor?.lastName || ''}, ${d.visitor?.firstName || ''}`, cols.visitor, y)
+          .text(d.donationType || 'N/A', cols.type, y)
+          .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
+        doc.moveDown(0.2);
+        rowIndex++;
+      });
 
-        typeDonations.forEach((d) => {
-          if (doc.y > 690) {
-            doc.addPage();
-            printHeaders();
-          }
-          const y = doc.y;
-          if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
-          doc.fillColor('#000000').font('Helvetica').fontSize(9)
-            .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
-            .text(`${d.visitor?.lastName || ''}, ${d.visitor?.firstName || ''}`, cols.visitor, y)
-            .text(d.donationType || 'N/A', cols.type, y)
-            .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
-          doc.moveDown(0.2);
-          rowIndex++;
-        });
-
-        // Category Subtotal row
+      // Show subtotal row ONLY if a specific category was selected
+      if (donationType) {
         if (doc.y > 690) {
           doc.addPage();
           printHeaders();
         }
         const subtotalY = doc.y;
-        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
-        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
-          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
-          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${donationType} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(total), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
         doc.fillColor('#000000');
         doc.moveDown(0.5);
-      });
+      }
 
       // Grand Total row
       if (doc.y > 680) {
@@ -2033,8 +1994,7 @@ module.exports = (app) => {
       }
       doc.moveDown(0.3);
       const totalY = doc.y;
-      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
-      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(11)
         .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
         .text(formatCurrency(total), cols.amount, totalY + 3, { width: 90, align: 'right' });
 
@@ -2108,7 +2068,7 @@ module.exports = (app) => {
 
       doc.fontSize(18).font('Helvetica-Bold').text('Supporter Donations Report', { align: 'center' });
       if (donationType) {
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`Donation Type: ${donationType}`, { align: 'center' });
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000').text(`Donation Type: ${donationType}`, { align: 'center' });
         doc.fillColor('#000000');
       }
       if (startDate || endDate) {
@@ -2131,48 +2091,36 @@ module.exports = (app) => {
 
       printHeaders();
 
-      // Group donations by category/type
-      const donationsByType = donations.reduce((acc, d) => {
-        const type = d.donationType || 'N/A';
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(d);
-        return acc;
-      }, {});
-
       let rowIndex = 0;
-      Object.keys(donationsByType).forEach((type) => {
-        const typeDonations = donationsByType[type];
-        const typeSubtotal = typeDonations.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+      donations.forEach((d) => {
+        if (doc.y > 690) {
+          doc.addPage();
+          printHeaders();
+        }
+        const y = doc.y;
+        if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
+        doc.fillColor('#000000').font('Helvetica').fontSize(9)
+          .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
+          .text(`${d.supporter?.lastName || ''}, ${d.supporter?.firstName || ''}`, cols.supporter, y)
+          .text(d.donationType || 'N/A', cols.type, y)
+          .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
+        doc.moveDown(0.2);
+        rowIndex++;
+      });
 
-        typeDonations.forEach((d) => {
-          if (doc.y > 690) {
-            doc.addPage();
-            printHeaders();
-          }
-          const y = doc.y;
-          if (rowIndex % 2 === 0) doc.rect(50, y - 2, 500, 16).fill('#f9fafb');
-          doc.fillColor('#000000').font('Helvetica').fontSize(9)
-            .text(d.donationDate ? new Date(d.donationDate).toLocaleDateString() : 'N/A', cols.date, y)
-            .text(`${d.supporter?.lastName || ''}, ${d.supporter?.firstName || ''}`, cols.supporter, y)
-            .text(d.donationType || 'N/A', cols.type, y)
-            .text(formatCurrency(d.amount), cols.amount, y, { width: 90, align: 'right' });
-          doc.moveDown(0.2);
-          rowIndex++;
-        });
-
-        // Category Subtotal row
+      // Show subtotal row ONLY if a specific category was selected
+      if (donationType) {
         if (doc.y > 690) {
           doc.addPage();
           printHeaders();
         }
         const subtotalY = doc.y;
-        doc.rect(50, subtotalY - 2, 500, 18).fill('#eff6ff');
-        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(9.5)
-          .text(`${type} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
-          .text(formatCurrency(typeSubtotal), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9.5)
+          .text(`${donationType} Subtotal:`, cols.date, subtotalY + 2, { width: 400, align: 'right' })
+          .text(formatCurrency(total), cols.amount, subtotalY + 2, { width: 90, align: 'right' });
         doc.fillColor('#000000');
         doc.moveDown(0.5);
-      });
+      }
 
       // Grand Total row
       if (doc.y > 680) {
@@ -2181,8 +2129,7 @@ module.exports = (app) => {
       }
       doc.moveDown(0.3);
       const totalY = doc.y;
-      doc.rect(50, totalY - 2, 500, 20).fill('#e5e7eb');
-      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11)
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(11)
         .text('Total:', cols.date, totalY + 3, { width: 400, align: 'right' })
         .text(formatCurrency(total), cols.amount, totalY + 3, { width: 90, align: 'right' });
 

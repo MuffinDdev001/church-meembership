@@ -506,41 +506,30 @@ const Reports = ({ initialReport }) => {
               .text-right {
                 text-align: right;
               }
-              /* Category Subtotal row styling */
-              tr.bg-blue-50, tr[class*="bg-blue"] {
-                background-color: #eff6ff !important;
-                border-top: 1px solid #bfdbfe !important;
-                border-bottom: 1px solid #bfdbfe !important;
+              tfoot {
+                display: table-row-group !important;
               }
-              tr.bg-blue-50 td, tr[class*="bg-blue"] td {
-                color: #1e40af !important;
+              /* Subtotal rows: clean, unshaded text */
+              tr.subtotal-row, tr.bg-blue-50, tr.bg-purple-50, tr.bg-indigo-50, tr[class*="bg-blue"], tr[class*="bg-purple"], tr[class*="bg-indigo"] {
+                background-color: transparent !important;
+                border: none !important;
+              }
+              tr.subtotal-row td, tr.bg-blue-50 td, tr.bg-purple-50 td, tr.bg-indigo-50 td, tr[class*="bg-blue"] td, tr[class*="bg-purple"] td, tr[class*="bg-indigo"] td {
+                color: #111827 !important;
                 font-weight: 700 !important;
+                background-color: transparent !important;
+                border: none !important;
+                padding: 6px 10px !important;
               }
-              tr.bg-purple-50, tr[class*="bg-purple"] {
-                background-color: #faf5ff !important;
-                border-top: 1px solid #e9d5ff !important;
-                border-bottom: 1px solid #e9d5ff !important;
-              }
-              tr.bg-purple-50 td, tr[class*="bg-purple"] td {
-                color: #6b21a8 !important;
-                font-weight: 700 !important;
-              }
-              tr.bg-indigo-50, tr[class*="bg-indigo"] {
-                background-color: #eef2ff !important;
-                border-top: 1px solid #c7d2fe !important;
-                border-bottom: 1px solid #c7d2fe !important;
-              }
-              tr.bg-indigo-50 td, tr[class*="bg-indigo"] td {
-                color: #3730a3 !important;
-                font-weight: 700 !important;
-              }
-              /* Grand total row styling */
-              tfoot tr, tfoot td {
-                background-color: #e5e7eb !important;
+              /* Grand total row: clean text at end of report */
+              tfoot tr, tfoot td, tr.total-row, tr.total-row td {
+                background-color: transparent !important;
                 color: #111827 !important;
                 font-weight: 700 !important;
                 font-size: 10.5pt !important;
-                border-top: 2px solid #9ca3af !important;
+                border-top: 1px solid #d1d5db !important;
+                border-bottom: none !important;
+                padding: 8px 10px !important;
               }
               .truncate {
                 overflow: visible !important;

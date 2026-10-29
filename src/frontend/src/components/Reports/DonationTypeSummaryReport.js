@@ -66,11 +66,11 @@ const DonationTypeSummaryReport = ({ reportData, selectedDonationType }) => {
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-gray-50 border-t border-gray-200">
-              <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+            <tr className="total-row border-t border-gray-300">
+              <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                 Total:
               </td>
-              <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+              <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                 {formatCurrency(totalAmount)}
               </td>
               <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">

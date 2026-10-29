@@ -33,23 +33,7 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc', selectedDonat
     ? sortedDonations.filter(d => (d.donationType || '').trim().toLowerCase() === filterType)
     : sortedDonations;
 
-  // Group donations by type
-  const donationsByType = filteredDonations.reduce((acc, donation) => {
-    const type = (donation.donationType || 'N/A').trim();
-    if (!acc[type]) {
-      acc[type] = [];
-    }
-    acc[type].push(donation);
-    return acc;
-  }, {});
-
-  // Calculate subtotals for each type
-  const typeSubtotals = Object.keys(donationsByType).reduce((acc, type) => {
-    acc[type] = donationsByType[type].reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
-    return acc;
-  }, {});
-
-  const grandTotal = Object.values(typeSubtotals).reduce((sum, val) => sum + val, 0);
+  const grandTotal = filteredDonations.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
 
   if (filteredDonations.length === 0) {
     return (
@@ -80,50 +64,47 @@ const SupporterDonationReport = ({ reportData, sortOrder = 'desc', selectedDonat
             </tr>
           </thead>
           <tbody className="bg-white">
-            {Object.keys(donationsByType).map((type) => (
-              <React.Fragment key={type}>
-                {donationsByType[type].map(donation => (
-                  <tr key={donation.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-1 whitespace-nowrap w-3/12 text-sm text-gray-500">
-                      <div className="truncate">
-                        {donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-1 whitespace-nowrap w-4/12 text-sm text-gray-500">
-                      <div className="truncate">
-                        {donation.supporter ? `${donation.supporter.lastName.trim()}, ${donation.supporter.firstName.trim()}` : 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-1 whitespace-nowrap w-3/12 text-sm text-gray-500">
-                      <div className="truncate">
-                        {(donation.donationType || 'N/A').trim()}
-                      </div>
-                    </td>
-                    <td className="px-3 py-1 whitespace-nowrap w-2/12 text-sm text-gray-500 text-right">
-                      <div className="truncate">
-                        {formatCurrency(donation.amount)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {/* Subtotal row for this donation type */}
-                <tr className="bg-indigo-50 border-y border-indigo-200">
-                  <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-indigo-900">
-                    {type} Subtotal:
-                  </td>
-                  <td className="px-3 py-1 text-right text-sm font-semibold text-indigo-900">
-                    {formatCurrency(typeSubtotals[type])}
-                  </td>
-                </tr>
-              </React.Fragment>
+            {filteredDonations.map(donation => (
+              <tr key={donation.id} className="hover:bg-gray-50">
+                <td className="px-3 py-1 whitespace-nowrap w-3/12 text-sm text-gray-500">
+                  <div className="truncate">
+                    {donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A'}
+                  </div>
+                </td>
+                <td className="px-3 py-1 whitespace-nowrap w-4/12 text-sm text-gray-500">
+                  <div className="truncate">
+                    {donation.supporter ? `${donation.supporter.lastName.trim()}, ${donation.supporter.firstName.trim()}` : 'N/A'}
+                  </div>
+                </td>
+                <td className="px-3 py-1 whitespace-nowrap w-3/12 text-sm text-gray-500">
+                  <div className="truncate">
+                    {(donation.donationType || 'N/A').trim()}
+                  </div>
+                </td>
+                <td className="px-3 py-1 whitespace-nowrap w-2/12 text-sm text-gray-500 text-right">
+                  <div className="truncate">
+                    {formatCurrency(donation.amount)}
+                  </div>
+                </td>
+              </tr>
             ))}
+            {selectedDonationType && (
+              <tr className="subtotal-row">
+                <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-gray-800">
+                  {(selectedDonationType.label || selectedDonationType.value).trim()} Subtotal:
+                </td>
+                <td className="px-3 py-1 text-right text-sm font-semibold text-gray-800">
+                  {formatCurrency(grandTotal)}
+                </td>
+              </tr>
+            )}
           </tbody>
           <tfoot>
-            <tr className="bg-gray-50 border-t border-gray-200">
-              <td colSpan="3" className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+            <tr className="total-row border-t border-gray-300">
+              <td colSpan="3" className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                 Total:
               </td>
-              <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+              <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                 {formatCurrency(grandTotal)}
               </td>
             </tr>

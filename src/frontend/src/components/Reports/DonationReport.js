@@ -34,19 +34,7 @@ const DonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }
     ? sortedDonations.filter(d => (d.donationType || '').trim().toLowerCase() === filterType)
     : sortedDonations;
 
-  const donationsByType = filteredDonations.reduce((acc, d) => {
-    const type = (d.donationType || 'N/A').trim();
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(d);
-    return acc;
-  }, {});
-
-  const typeSubtotals = Object.keys(donationsByType).reduce((acc, type) => {
-    acc[type] = donationsByType[type].reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
-    return acc;
-  }, {});
-
-  const grandTotal = Object.values(typeSubtotals).reduce((sum, val) => sum + val, 0);
+  const grandTotal = filteredDonations.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
 
   if (filteredDonations.length === 0) {
     return (
@@ -69,53 +57,51 @@ const DonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }
             </tr>
           </thead>
           <tbody className="bg-white">
-            {Object.keys(donationsByType).map((type) => (
-              <React.Fragment key={type}>
-                {donationsByType[type].map(donation => (
-                  <tr key={donation.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-1 text-sm text-gray-500 whitespace-nowrap" style={{ width: colWidths.date }}>
-                      <div className="truncate">
-                        {donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-1 text-sm text-gray-500 whitespace-nowrap" style={{ width: colWidths.person }}>
-                      <div className="truncate">
-                        {donation.member
-                          ? `${donation.member.lastName.trim()}, ${donation.member.firstName.trim()}`
-                          : donation.visitor
-                            ? `${donation.visitor.lastName.trim()}, ${donation.visitor.firstName.trim()} (Visitor)`
-                            : donation.supporter
-                              ? `${donation.supporter.lastName.trim()}, ${donation.supporter.firstName.trim()} (Supporter)`
-                              : 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-1 text-sm text-gray-500 whitespace-nowrap" style={{ width: colWidths.type }}>
-                      <div className="truncate">
-                        {(donation.donationType || 'N/A').trim()}
-                      </div>
-                    </td>
-                    <td className="px-3 py-1 text-sm text-gray-500 text-right whitespace-nowrap" style={{ width: colWidths.amount }}>
-                      <div className="truncate">
-                        {formatCurrency(donation.amount)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                <tr className="bg-blue-50 border-y border-blue-200">
-                  <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-blue-900">
-                    {type} Subtotal:
-                  </td>
-                  <td className="px-3 py-1 text-right text-sm font-semibold text-blue-900">
-                    {formatCurrency(typeSubtotals[type])}
-                  </td>
-                </tr>
-              </React.Fragment>
+            {filteredDonations.map(donation => (
+              <tr key={donation.id} className="hover:bg-gray-50">
+                <td className="px-3 py-1 text-sm text-gray-500 whitespace-nowrap" style={{ width: colWidths.date }}>
+                  <div className="truncate">
+                    {donation.donationDate ? new Date(donation.donationDate).toLocaleDateString() : 'N/A'}
+                  </div>
+                </td>
+                <td className="px-3 py-1 text-sm text-gray-500 whitespace-nowrap" style={{ width: colWidths.person }}>
+                  <div className="truncate">
+                    {donation.member
+                      ? `${donation.member.lastName.trim()}, ${donation.member.firstName.trim()}`
+                      : donation.visitor
+                        ? `${donation.visitor.lastName.trim()}, ${donation.visitor.firstName.trim()} (Visitor)`
+                        : donation.supporter
+                          ? `${donation.supporter.lastName.trim()}, ${donation.supporter.firstName.trim()} (Supporter)`
+                          : 'N/A'}
+                  </div>
+                </td>
+                <td className="px-3 py-1 text-sm text-gray-500 whitespace-nowrap" style={{ width: colWidths.type }}>
+                  <div className="truncate">
+                    {(donation.donationType || 'N/A').trim()}
+                  </div>
+                </td>
+                <td className="px-3 py-1 text-sm text-gray-500 text-right whitespace-nowrap" style={{ width: colWidths.amount }}>
+                  <div className="truncate">
+                    {formatCurrency(donation.amount)}
+                  </div>
+                </td>
+              </tr>
             ))}
+            {selectedDonationType && (
+              <tr className="subtotal-row">
+                <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-gray-800">
+                  {(selectedDonationType.label || selectedDonationType.value).trim()} Subtotal:
+                </td>
+                <td className="px-3 py-1 text-right text-sm font-semibold text-gray-800">
+                  {formatCurrency(grandTotal)}
+                </td>
+              </tr>
+            )}
           </tbody>
           <tfoot>
-            <tr className="bg-gray-50 border-t border-gray-200">
-              <td colSpan="3" className="px-3 py-2 text-right text-sm font-medium text-gray-900">Total:</td>
-              <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">{formatCurrency(grandTotal)}</td>
+            <tr className="total-row border-t border-gray-300">
+              <td colSpan="3" className="px-3 py-2 text-right text-sm font-bold text-gray-900">Total:</td>
+              <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{formatCurrency(grandTotal)}</td>
             </tr>
           </tfoot>
         </table>
