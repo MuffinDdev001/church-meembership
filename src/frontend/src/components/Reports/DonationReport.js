@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ResizableTh from '../common/ResizableTh';
 
-const DonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }) => {
+const DonationReport = ({ reportData, sortOrder = 'desc', sortField = 'date', selectedDonationType }) => {
   const [colWidths, setColWidths] = useState({ date: 140, person: 200, type: 160, amount: 120 });
 
   const setCol = (key) => (w) => setColWidths(prev => ({ ...prev, [key]: w }));
@@ -16,16 +16,22 @@ const DonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
       .format(parseFloat(amount || 0));
 
+  const getSortName = (d) => {
+    if (d.member) return `${d.member.lastName || ''} ${d.member.firstName || ''}`;
+    if (d.visitor) return `${d.visitor.lastName || ''} ${d.visitor.firstName || ''}`;
+    if (d.supporter) return `${d.supporter.lastName || ''} ${d.supporter.firstName || ''}`;
+    return '';
+  };
+
   const sortedDonations = [...(donations || [])].sort((a, b) => {
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'name') return dir * getSortName(a).toLowerCase().localeCompare(getSortName(b).toLowerCase());
+    if (sortField === 'type') return dir * (a.donationType || '').toLowerCase().localeCompare((b.donationType || '').toLowerCase());
+    if (sortField === 'amount') return dir * (parseFloat(a.amount || 0) - parseFloat(b.amount || 0));
+    // date (default)
     const ad = a.donationDate ? new Date(a.donationDate).getTime() : 0;
     const bd = b.donationDate ? new Date(b.donationDate).getTime() : 0;
-    if (bd !== ad) return sortOrder === 'asc' ? ad - bd : bd - ad;
-    const getSortName = (d) => {
-      if (d.member) return `${d.member.lastName || ''} ${d.member.firstName || ''}`;
-      if (d.visitor) return `${d.visitor.lastName || ''} ${d.visitor.firstName || ''}`;
-      if (d.supporter) return `${d.supporter.lastName || ''} ${d.supporter.firstName || ''}`;
-      return '';
-    };
+    if (ad !== bd) return dir * (ad - bd);
     return getSortName(a).toLowerCase().localeCompare(getSortName(b).toLowerCase());
   });
 
@@ -87,7 +93,7 @@ const DonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }
                 </td>
               </tr>
             ))}
-            {selectedDonationType && (
+            {filterType && (
               <tr className="subtotal-row">
                 <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-gray-800">
                   {(selectedDonationType.label || selectedDonationType.value).trim()} Subtotal:

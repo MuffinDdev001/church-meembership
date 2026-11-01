@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ResizableTh from '../common/ResizableTh';
 
-const MembershipReport = ({ reportData, sortOrder = 'desc' }) => {
+const MembershipReport = ({ reportData, sortOrder = 'asc', sortField = 'name' }) => {
   const [colWidths, setColWidths] = useState({ name: 160, phone: 120, address: 200, date: 130, email: 170, groups: 140 });
   const setCol = (key) => (w) => setColWidths(prev => ({ ...prev, [key]: w }));
 
@@ -12,12 +12,18 @@ const MembershipReport = ({ reportData, sortOrder = 'desc' }) => {
   const { members } = reportData;
 
   const sortedMembers = [...(members || [])].sort((a, b) => {
-    const ad = a.membershipDate ? new Date(a.membershipDate).getTime() : 0;
-    const bd = b.membershipDate ? new Date(b.membershipDate).getTime() : 0;
-    if (bd !== ad) return sortOrder === 'asc' ? ad - bd : bd - ad;
-    const an = `${a.lastName || ''} ${a.firstName || ''}`.trim().toLowerCase();
-    const bn = `${b.lastName || ''} ${b.firstName || ''}`.trim().toLowerCase();
-    return an.localeCompare(bn);
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'date') {
+      const ad = a.membershipDate ? new Date(a.membershipDate).getTime() : 0;
+      const bd = b.membershipDate ? new Date(b.membershipDate).getTime() : 0;
+      return dir * (ad - bd);
+    }
+    if (sortField === 'phone') return dir * (a.phone || '').localeCompare(b.phone || '');
+    if (sortField === 'email') return dir * (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
+    // name (default)
+    const an = `${a.lastName || ''} ${a.firstName || ''}`.toLowerCase();
+    const bn = `${b.lastName || ''} ${b.firstName || ''}`.toLowerCase();
+    return dir * an.localeCompare(bn);
   });
 
   return (

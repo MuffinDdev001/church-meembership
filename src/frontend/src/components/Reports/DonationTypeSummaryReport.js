@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DonationTypeSummaryReport = ({ reportData, selectedDonationType }) => {
+const DonationTypeSummaryReport = ({ reportData, sortOrder = 'desc', sortField = 'amount', selectedDonationType }) => {
   if (!reportData || !reportData.summary) {
     return <div className="p-6 text-center text-gray-500">No data available</div>;
   }
@@ -23,7 +23,11 @@ const DonationTypeSummaryReport = ({ reportData, selectedDonationType }) => {
     : (rawSummary || {});
 
   const totalAmount = Object.values(summary).reduce((sum, amount) => sum + parseFloat(amount || 0), 0);
-  const rows = Object.entries(summary).sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0));
+  const rows = Object.entries(summary).sort((a, b) => {
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'name') return dir * a[0].toLowerCase().localeCompare(b[0].toLowerCase());
+    return dir * (parseFloat(a[1] || 0) - parseFloat(b[1] || 0));
+  });
 
   if (rows.length === 0) {
     return (

@@ -44,6 +44,7 @@ const Reports = ({ initialReport }) => {
   const [loadingDonationTypes, setLoadingDonationTypes] = useState(false);
   const [selectedRightOption, setSelectedRightOption] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [sortField, setSortField] = useState('date');
 
   // ── Static option lists ──
   // LEFT dropdown: report category
@@ -554,34 +555,50 @@ const Reports = ({ initialReport }) => {
   // Clear report data when either report type changes
   useEffect(() => { setReportData(null); }, [activeReport, activeReport2]);
 
+  // Reset sortField to sensible default when report type changes
+  useEffect(() => {
+    const fieldMap = {
+      membership: 'name',
+      groups: 'name',
+      groupMembership: 'group',
+      vendors: 'name',
+      expenses: 'date',
+      charges: 'date',
+      deposits: 'date',
+      donationTypeSummary: 'amount',
+      totalDonations: 'date',
+    };
+    setSortField(fieldMap[effectiveReport] || 'date');
+  }, [effectiveReport]);
+
   const renderReportContent = () => {
     switch (effectiveReport) {
       case 'memberDonations':
-        return <DonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
+        return <DonationReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} selectedDonationType={selectedDonationType} />;
       case 'visitorDonations':
-        return <VisitorDonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
+        return <VisitorDonationReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} selectedDonationType={selectedDonationType} />;
       case 'supporterDonations':
-        return <SupporterDonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
+        return <SupporterDonationReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} selectedDonationType={selectedDonationType} />;
       case 'donations':
-        return <DonationReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
+        return <DonationReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} selectedDonationType={selectedDonationType} />;
       case 'membership':
-        return <MembershipReport reportData={reportData} sortOrder={sortOrder} />;
+        return <MembershipReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'groups':
-        return <GroupReport reportData={reportData} sortOrder={sortOrder} />;
+        return <GroupReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'groupMembership':
-        return <GroupMembershipReport reportData={reportData} sortOrder={sortOrder} />;
+        return <GroupMembershipReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'totalDonations':
-        return <TotalDonationReport reportData={reportData} sortOrder={sortOrder} />;
+        return <TotalDonationReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'donationTypeSummary':
-        return <DonationTypeSummaryReport reportData={reportData} sortOrder={sortOrder} selectedDonationType={selectedDonationType} />;
+        return <DonationTypeSummaryReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} selectedDonationType={selectedDonationType} />;
       case 'vendors':
-        return <VendorsReport reportData={reportData} sortOrder={sortOrder} />;
+        return <VendorsReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'expenses':
-        return <ExpensesReport reportData={reportData} sortOrder={sortOrder} />;
+        return <ExpensesReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'charges':
-        return <ChargesReport reportData={reportData} sortOrder={sortOrder} />;
+        return <ChargesReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       case 'deposits':
-        return <DepositReport reportData={reportData} sortOrder={sortOrder} />;
+        return <DepositReport reportData={reportData} sortOrder={sortOrder} sortField={sortField} />;
       default:
         return <div className="p-6 text-center text-gray-500">Select a report type</div>;
     }
@@ -634,15 +651,97 @@ const Reports = ({ initialReport }) => {
             Print
           </button>
 
+          {/* Sort By field selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sort Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value)}
+              className="h-10 px-3 border border-gray-300 rounded-md text-sm"
+            >
+              {isDonationReport && effectiveReport !== 'donationTypeSummary' && (
+                <>
+                  <option value="date">Date</option>
+                  <option value="name">Name</option>
+                  <option value="type">Donation Type</option>
+                  <option value="amount">Amount</option>
+                </>
+              )}
+              {effectiveReport === 'donationTypeSummary' && (
+                <>
+                  <option value="amount">Amount</option>
+                  <option value="name">Type Name</option>
+                </>
+              )}
+              {effectiveReport === 'membership' && (
+                <>
+                  <option value="name">Name</option>
+                  <option value="date">Membership Date</option>
+                  <option value="phone">Phone</option>
+                  <option value="email">Email</option>
+                </>
+              )}
+              {effectiveReport === 'groups' && (
+                <>
+                  <option value="name">Group Name</option>
+                  <option value="members">Member Count</option>
+                </>
+              )}
+              {effectiveReport === 'groupMembership' && (
+                <>
+                  <option value="group">Group Name</option>
+                  <option value="name">Member Name</option>
+                </>
+              )}
+              {effectiveReport === 'totalDonations' && (
+                <>
+                  <option value="date">Date</option>
+                  <option value="name">Name</option>
+                  <option value="type">Donation Type</option>
+                  <option value="amount">Amount</option>
+                </>
+              )}
+              {effectiveReport === 'vendors' && (
+                <>
+                  <option value="name">Vendor Name</option>
+                  <option value="amount">Total Charges</option>
+                </>
+              )}
+              {effectiveReport === 'expenses' && (
+                <>
+                  <option value="date">Due Date</option>
+                  <option value="vendor">Vendor</option>
+                  <option value="category">Category</option>
+                  <option value="amount">Amount</option>
+                </>
+              )}
+              {effectiveReport === 'charges' && (
+                <>
+                  <option value="date">Date</option>
+                  <option value="vendor">Vendor</option>
+                  <option value="category">Category</option>
+                  <option value="amount">Amount</option>
+                </>
+              )}
+              {effectiveReport === 'deposits' && (
+                <>
+                  <option value="date">Date</option>
+                  <option value="bank">Bank</option>
+                  <option value="amount">Total</option>
+                </>
+              )}
+            </select>
+          </div>
+          {/* Sort direction */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
               className="h-10 px-3 border border-gray-300 rounded-md text-sm"
             >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
+              <option value="asc">A → Z / Oldest</option>
+              <option value="desc">Z → A / Newest</option>
             </select>
           </div>
         </div>
@@ -690,7 +789,7 @@ const Reports = ({ initialReport }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Donation Type (Optional)</label>
               <Select
-                options={donationTypes}
+                options={[{ value: '', label: 'None' }, ...donationTypes]}
                 value={selectedDonationType}
                 onChange={setSelectedDonationType}
                 placeholder="All Types"
@@ -868,9 +967,9 @@ const Reports = ({ initialReport }) => {
             </div>
           </div>
           {/* Active filter summary badges */}
-          {(selectedDonationType || selectedMember || selectedVisitor || selectedSupporter || dateRange.startDate || dateRange.endDate) && (
+          {((selectedDonationType && selectedDonationType.value) || selectedMember || selectedVisitor || selectedSupporter || dateRange.startDate || dateRange.endDate) && (
             <div className="flex flex-wrap gap-2 mt-2 text-xs">
-              {selectedDonationType && (
+              {selectedDonationType && selectedDonationType.value && (
                 <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-medium">
                   Donation Type: {selectedDonationType.label || selectedDonationType.value}
                 </span>

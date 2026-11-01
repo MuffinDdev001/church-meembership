@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ResizableTh from '../common/ResizableTh';
 
-const VendorsReport = ({ reportData }) => {
+const VendorsReport = ({ reportData, sortOrder = 'asc', sortField = 'name' }) => {
   const [colWidths, setColWidths] = useState({ name: 220, contact: 200, charges: 140 });
   const setCol = (key) => (w) => setColWidths(prev => ({ ...prev, [key]: w }));
 
@@ -16,9 +16,11 @@ const VendorsReport = ({ reportData }) => {
       .format(parseFloat(amount));
 
   const rows = [...(vendors || [])].sort((a, b) => {
-    const an = `${a.lastName || ''}`.toLowerCase();
-    const bn = `${b.lastName || ''}`.toLowerCase();
-    return an.localeCompare(bn);
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'amount') return dir * (parseFloat(a.totalCharges || 0) - parseFloat(b.totalCharges || 0));
+    const an = (a.lastName || '').toLowerCase();
+    const bn = (b.lastName || '').toLowerCase();
+    return dir * an.localeCompare(bn);
   });
 
   const totalChargesSum = (vendors || []).reduce((sum, v) => sum + parseFloat(v.totalCharges || 0), 0);

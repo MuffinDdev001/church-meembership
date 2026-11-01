@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ResizableTh from '../common/ResizableTh';
 
-const DepositReport = ({ reportData, sortOrder = 'desc' }) => {
+const DepositReport = ({ reportData, sortOrder = 'desc', sortField = 'date' }) => {
   const [colWidths, setColWidths] = useState({ date: 120, bank: 160, account: 140, cash: 110, check: 110, total: 110 });
   const setCol = (key) => (w) => setColWidths(prev => ({ ...prev, [key]: w }));
 
@@ -21,10 +21,13 @@ const DepositReport = ({ reportData, sortOrder = 'desc' }) => {
   };
 
   const rows = [...(deposits || [])].sort((a, b) => {
-    const ad = a.date ? new Date(a.date).getTime() : 0;
-    const bd = b.date ? new Date(b.date).getTime() : 0;
-    if (bd !== ad) return sortOrder === 'asc' ? ad - bd : bd - ad;
-    return parseFloat(b.totalAmount || 0) - parseFloat(a.totalAmount || 0);
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'bank') return dir * (a.bankName || '').toLowerCase().localeCompare((b.bankName || '').toLowerCase());
+    if (sortField === 'amount') return dir * (parseFloat(a.totalAmount || 0) - parseFloat(b.totalAmount || 0));
+    // date (default)
+    const ad = a.depositDate ? new Date(a.depositDate).getTime() : 0;
+    const bd = b.depositDate ? new Date(b.depositDate).getTime() : 0;
+    return dir * (ad - bd);
   });
 
   return (

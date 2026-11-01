@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ResizableTh from '../common/ResizableTh';
 
-const ChargesReport = ({ reportData, sortOrder = 'desc' }) => {
+const ChargesReport = ({ reportData, sortOrder = 'desc', sortField = 'date' }) => {
   const [colWidths, setColWidths] = useState({ date: 130, vendor: 160, category: 160, amount: 120 });
   const setCol = (key) => (w) => setColWidths(prev => ({ ...prev, [key]: w }));
 
@@ -16,12 +16,25 @@ const ChargesReport = ({ reportData, sortOrder = 'desc' }) => {
       .format(parseFloat(amount || 0));
 
   const rows = [...(charges || [])].sort((a, b) => {
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'vendor') {
+      const an = a.vendor ? (a.vendor.lastName || '').toLowerCase() : '';
+      const bn = b.vendor ? (b.vendor.lastName || '').toLowerCase() : '';
+      return dir * an.localeCompare(bn);
+    }
+    if (sortField === 'category') {
+      const an = (a.expenseCategory?.name || '').toLowerCase();
+      const bn = (b.expenseCategory?.name || '').toLowerCase();
+      return dir * an.localeCompare(bn);
+    }
+    if (sortField === 'amount') return dir * (parseFloat(a.amount || 0) - parseFloat(b.amount || 0));
+    // date (default)
     const ad = a.dueDate ? new Date(a.dueDate).getTime() : 0;
     const bd = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-    if (bd !== ad) return sortOrder === 'asc' ? ad - bd : bd - ad;
-    const an = a.vendor ? `${a.vendor.lastName || ''}`.toLowerCase() : '';
-    const bn = b.vendor ? `${b.vendor.lastName || ''}`.toLowerCase() : '';
-    return an.localeCompare(bn);
+    if (ad !== bd) return dir * (ad - bd);
+    const an2 = a.vendor ? (a.vendor.lastName || '').toLowerCase() : '';
+    const bn2 = b.vendor ? (b.vendor.lastName || '').toLowerCase() : '';
+    return an2.localeCompare(bn2);
   });
 
   const sortedCategorySummary = categorySummary

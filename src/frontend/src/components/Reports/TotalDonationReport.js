@@ -1,6 +1,6 @@
 import React from 'react';
 
-const TotalDonationReport = ({ reportData, sortOrder = 'desc' }) => {
+const TotalDonationReport = ({ reportData, sortOrder = 'desc', sortField = 'date' }) => {
   if (!reportData || !reportData.donations) {
     return <div className="p-6 text-center text-gray-500">No data available</div>;
   }
@@ -16,21 +16,21 @@ const TotalDonationReport = ({ reportData, sortOrder = 'desc' }) => {
   };
 
   const rows = [...(donations || [])].sort((a, b) => {
-    const ad = a.donationDate ? new Date(a.donationDate).getTime() : 0;
-    const bd = b.donationDate ? new Date(b.donationDate).getTime() : 0;
-    if (bd !== ad) return sortOrder === 'asc' ? ad - bd : bd - ad;
-    const getSortName = (d) => {
-      if (d.member) return `${d.member.lastName || ''} ${d.member.firstName || ''}`;
-      if (d.visitor) return `${d.visitor.lastName || ''} ${d.visitor.firstName || ''}`;
-      if (d.supporter) return `${d.supporter.lastName || ''} ${d.supporter.firstName || ''}`;
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    const getName = (d) => {
+      if (d.member) return `${d.member.lastName || ''} ${d.member.firstName || ''}`.trim();
+      if (d.visitor) return `${d.visitor.lastName || ''} ${d.visitor.firstName || ''}`.trim();
+      if (d.supporter) return `${d.supporter.lastName || ''} ${d.supporter.firstName || ''}`.trim();
       return '';
     };
-    const an = getSortName(a).trim().toLowerCase();
-    const bn = getSortName(b).trim().toLowerCase();
-    if (an !== bn) return an.localeCompare(bn);
-    const aa = parseFloat(a.amount || 0);
-    const ba = parseFloat(b.amount || 0);
-    return ba - aa;
+    if (sortField === 'name') return dir * getName(a).toLowerCase().localeCompare(getName(b).toLowerCase());
+    if (sortField === 'type') return dir * (a.donationType || '').toLowerCase().localeCompare((b.donationType || '').toLowerCase());
+    if (sortField === 'amount') return dir * (parseFloat(a.amount || 0) - parseFloat(b.amount || 0));
+    // date (default)
+    const ad = a.donationDate ? new Date(a.donationDate).getTime() : 0;
+    const bd = b.donationDate ? new Date(b.donationDate).getTime() : 0;
+    if (ad !== bd) return dir * (ad - bd);
+    return getName(a).toLowerCase().localeCompare(getName(b).toLowerCase());
   });
 
   return (

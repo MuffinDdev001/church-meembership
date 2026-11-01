@@ -1,6 +1,6 @@
 import React from 'react';
 
-const GroupReport = ({ reportData }) => {
+const GroupReport = ({ reportData, sortOrder = 'asc', sortField = 'name' }) => {
   if (!reportData || !reportData.groups) {
     return <div className="p-6 text-center text-gray-500">No data available</div>;
   }
@@ -8,12 +8,11 @@ const GroupReport = ({ reportData }) => {
   const { groups, total } = reportData;
 
   const rows = [...(groups || [])].sort((a, b) => {
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'members') return dir * ((a.members || []).length - (b.members || []).length);
     const an = (a.name || '').toLowerCase();
     const bn = (b.name || '').toLowerCase();
-    if (an !== bn) return an.localeCompare(bn);
-    const am = (a.members || []).length;
-    const bm = (b.members || []).length;
-    return bm - am;
+    return dir * an.localeCompare(bn);
   });
 
   return (

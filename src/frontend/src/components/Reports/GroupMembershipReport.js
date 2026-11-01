@@ -1,6 +1,6 @@
 import React from 'react';
 
-const GroupMembershipReport = ({ reportData }) => {
+const GroupMembershipReport = ({ reportData, sortOrder = 'asc', sortField = 'group' }) => {
     if (!reportData || !reportData.groups || reportData.groups.length === 0) {
         return <div className="text-center p-8 text-gray-500">No group membership data found.</div>;
     }
@@ -15,6 +15,16 @@ const GroupMembershipReport = ({ reportData }) => {
             memberId: membership.member.id,
             member: membership.member || membership
         }));
+    });
+
+    flatMemberships.sort((a, b) => {
+      const dir = sortOrder === 'asc' ? 1 : -1;
+      if (sortField === 'name') {
+        const an = `${a.member?.lastName || ''} ${a.member?.firstName || ''}`.trim().toLowerCase();
+        const bn = `${b.member?.lastName || ''} ${b.member?.firstName || ''}`.trim().toLowerCase();
+        return dir * an.localeCompare(bn);
+      }
+      return dir * (a.groupName || '').toLowerCase().localeCompare((b.groupName || '').toLowerCase());
     });
 
     if (flatMemberships.length === 0) {

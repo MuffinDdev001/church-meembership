@@ -1,6 +1,6 @@
 import React from 'react';
 
-const VisitorDonationReport = ({ reportData, sortOrder = 'desc', selectedDonationType }) => {
+const VisitorDonationReport = ({ reportData, sortOrder = 'desc', sortField = 'date', selectedDonationType }) => {
   if (!reportData || !reportData.donations) {
     return <div className="p-6 text-center text-gray-500">No data available</div>;
   }
@@ -17,15 +17,21 @@ const VisitorDonationReport = ({ reportData, sortOrder = 'desc', selectedDonatio
 
   // Sort donations by date (desc), then name, then amount
   const sortedDonations = [...(donations || [])].sort((a, b) => {
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    if (sortField === 'name') {
+      const an = `${a.visitor?.lastName || ''} ${a.visitor?.firstName || ''}`.trim().toLowerCase();
+      const bn = `${b.visitor?.lastName || ''} ${b.visitor?.firstName || ''}`.trim().toLowerCase();
+      return dir * an.localeCompare(bn);
+    }
+    if (sortField === 'type') return dir * (a.donationType || '').toLowerCase().localeCompare((b.donationType || '').toLowerCase());
+    if (sortField === 'amount') return dir * (parseFloat(a.amount || 0) - parseFloat(b.amount || 0));
+    // date (default)
     const ad = a.donationDate ? new Date(a.donationDate).getTime() : 0;
     const bd = b.donationDate ? new Date(b.donationDate).getTime() : 0;
-    if (bd !== ad) return sortOrder === 'asc' ? ad - bd : bd - ad;
-    const an = a.visitor ? `${a.visitor.lastName || ''} ${a.visitor.firstName || ''}`.trim().toLowerCase() : '';
-    const bn = b.visitor ? `${b.visitor.lastName || ''} ${b.visitor.firstName || ''}`.trim().toLowerCase() : '';
-    if (an !== bn) return an.localeCompare(bn);
-    const aa = parseFloat(a.amount || 0);
-    const ba = parseFloat(b.amount || 0);
-    return ba - aa;
+    if (ad !== bd) return dir * (ad - bd);
+    const an2 = `${a.visitor?.lastName || ''} ${a.visitor?.firstName || ''}`.trim().toLowerCase();
+    const bn2 = `${b.visitor?.lastName || ''} ${b.visitor?.firstName || ''}`.trim().toLowerCase();
+    return an2.localeCompare(bn2);
   });
 
   const filterType = selectedDonationType?.value?.trim().toLowerCase();
@@ -88,7 +94,7 @@ const VisitorDonationReport = ({ reportData, sortOrder = 'desc', selectedDonatio
                 </td>
               </tr>
             ))}
-            {selectedDonationType && (
+            {filterType && (
               <tr className="subtotal-row">
                 <td colSpan="3" className="px-3 py-1 text-right text-sm font-semibold text-gray-800">
                   {(selectedDonationType.label || selectedDonationType.value).trim()} Subtotal:
